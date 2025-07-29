@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 대동여지도</title>
+    <meta name="description" content="시간에 따라 변화하는 나만의 이동 경로 기억 지도">
+    <meta name="keywords" content="지도, 경로, 기억, 시각화, 대동여지도">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 20px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .main {
+            flex: 1;
+            position: relative;
+        }
+
+        h1 {
+            color: #4ecdc4;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 20px;
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section h3 {
+            margin-bottom: 10px;
+            color: #4ecdc4;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            margin: 3px;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        button.active {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+        }
+
+        .time-display {
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .legend {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            margin-right: 8px;
+            opacity: 0.8;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 5px;
+        }
+
+        .stats span {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            color: #4ecdc4;
+            z-index: 2000;
+            text-align: center;
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1500;
+        }
+
+        .controls button {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-left: 5px;
+        }
+
+        .description {
+            background: rgba(76, 175, 80, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 11px;
+            border-left: 3px solid #4caf50;
+            line-height: 1.3;
+        }
+
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 10px;
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 768px) {
+            .container { 
+                flex-direction: column; 
+            }
+            .sidebar { 
+                width: 100%; 
+                height: 40vh; 
+            }
+            .main { 
+                height: 60vh; 
+            }
+            #map { 
+                height: 60vh; 
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        🗺️ 지도 로딩 중...<br>
+        <small>잠시만 기다려주세요</small>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <h1>🗺️ 나의 대동여지도</h1>
+            
+            <div class="description">
+                <strong>내가 다닌 길의 기억</strong><br>
+                지도를 클릭하여 경로를 그리고,<br>
+                시간이 지나면서 기억이 변화하는 모습을 확인하세요.
+            </div>
+            
+            <div class="section">
+                <h3>⏱️ 시뮬레이션</h3>
+                <button onclick="toggleSimulation()" id="simBtn">시뮬레이션 시작</button>
+                <button onclick="addTestRoute()">테스트 경로</button>
+                <button onclick="clearAll()">모두 삭제</button>
+                <br><br>
+                <strong>시간 가속:</strong><br>
+                <button onclick="setSpeed(1)" class="speed active">1x</button>
+                <button onclick="setSpeed(60)" class="speed">60x</button>
+                <button onclick="setSpeed(600)" class="speed">600x</button>
+                <button onclick="setSpeed(3600)" class="speed">3600x</button>
+            </div>
+
+            <div class="section">
+                <h3>📊 현재 상태</h3>
+                <div class="time-display" id="timeDisplay">2024-01-01 12:00:00</div>
+                <div class="stats">
+                    <span>가속: <span id="speedText">1x</span></span>
+                    <span>상태: <span id="status">정지</span></span>
+                </div>
+                <div class="stats">
+                    <span>경로: <span id="routeCount">0</span>개</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🎨 5단계 기억 시스템</h3>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFFFFF; border: 1px solid #666;"></div>
+                        <span>1단계: 흰색 (100%→40%, 10시간)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #90EE90;"></div>
+                        <span>→ 연두색 (40%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #32CD32;"></div>
+                        <span>2단계: 초록색 (40%, 14시간)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFA500;"></div>
+                        <span>3단계: 주황색 (40%, 7일)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FF0000;"></div>
+                        <span>4단계: 빨간색 (40%, 30일)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #8B4513;"></div>
+                        <span>5단계: 갈색 (40%, 영구)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p><strong>나의 대동여지도</strong></p>
+                <p>시간에 따른 기억의 변화</p>
+                <p style="margin-top: 5px;">
+                    <a href="https://github.com" style="color: #4ecdc4; text-decoration: none;">GitHub</a> |
+                    <a href="#" onclick="showHelp()" style="color: #4ecdc4; text-decoration: none;">도움말</a>
+                </p>
+            </div>
+        </div>
+
+        <div class="main">
+            <div class="controls">
+                <button onclick="getCurrentLocation()" title="현재 위치로 이동">📍 내 위치</button>
+                <button onclick="changeMapStyle()" title="지도 스타일 변경">🎨 지도 변경</button>
+                <button onclick="showHelp()" title="사용법 보기">❓ 도움말</button>
+            </div>
+
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <script>
+        // 전역 변수
+        let map;
+        let routes = [];
+        let currentTime = new Date('2024-01-01T12:00:00');
+        let simulationRunning = false;
+        let speed = 1;
+        let interval;
+        let clickPoints = [];
+
+        // 지도 스타일 설정
+        let currentMapStyle = 0;
+        const mapStyles = [
+            {
+                name: 'Dark Theme',
+                url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                attribution: '© OpenStreetMap contributors © CartoDB'
+            },
+            {
+                name: 'Light Theme', 
+                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                attribution: '© OpenStreetMap contributors © CartoDB'
+            },
+            {
+                name: 'Standard',
+                url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                attribution: '© OpenStreetMap contributors'
+            },
+            {
+                name: 'Satellite',
+                url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                attribution: 'Tiles © Esri'
+            }
+        ];
+
+        // 지도 초기화
+        function initMap() {
+            try {
+                console.log('지도 초기화 시작...');
+                
+                // 지도 생성 (서울시청 중심)
+                map = L.map('map').setView([37.5665, 126.9780], 15);
+                
+                // 기본 지도 타일 추가 (어두운 테마)
+                L.tileLayer(mapStyles[0].url, {
+                    attribution: mapStyles[0].attribution,
+                    maxZoom: 19
+                }).addTo(map);
+
+                // 지도 클릭 이벤트
+                map.on('click', function(e) {
+                    handleMapClick(e.latlng);
+                });
+
+                // 지도 로딩 완료
+                map.whenReady(function() {
+                    document.getElementById('loading').style.display = 'none';
+                    console.log('지도 로딩 완료');
+                    
+                    // 시작 시 데모 경로 추가
+                    setTimeout(() => {
+                        addTestRoute();
+                        console.log('데모 경로 추가 완료');
+                    }, 500);
+                });
+
+            } catch (error) {
+                console.error('지도 초기화 실패:', error);
+                document.getElementById('loading').innerHTML = '❌ 지도 로딩 실패<br><small>인터넷 연결을 확인해주세요</small>';
+            }
+        }
+
+        // 지도 클릭 처리
+        function handleMapClick(latlng) {
+            clickPoints.push(latlng);
+            
+            // 클릭 지점에 임시 마커 표시
+            L.circleMarker(latlng, {
+                color: '#ff6b6b',
+                fillColor: '#ff6b6b',
+                fillOpacity: 0.8,
+                radius: 4,
+                weight: 2
+            }).addTo(map);
+
+            if (clickPoints.length === 2) {
+                // 두 점이 모이면 경로 생성
+                createRoute(clickPoints[0], clickPoints[1]);
+                clickPoints = [];
+                
+                // 임시 마커들 제거
+                map.eachLayer(function(layer) {
+                    if (layer instanceof L.CircleMarker) {
+                        map.removeLayer(layer);
+                    }
+                });
+            }
+        }
+
+        // 경로 생성
+        function createRoute(start, end) {
+            const route = {
+                id: Date.now(),
+                coordinates: [start, end],
+                createdAt: new Date(currentTime),
+                polyline: null
+            };
+
+            // 경로 라인 생성
+            route.polyline = L.polyline([start, end], {
+                color: '#FFFFFF',
+                weight: 4,
+                opacity: 1.0,
+                lineCap: 'round',
+                lineJoin: 'round'
+            }).addTo(map);
+
+            routes.push(route);
+            updateStats();
+            console.log('새 경로 추가됨:', route.id);
+        }
+
+        // 5단계 기억 시스템 - 시간에 따른 상태 계산
+        function getMemoryState(ageInMinutes) {
+            if (ageInMinutes < 600) {
+                // 1단계: 흰색 (100% → 40%, 10시간)
+                const opacity = Math.max(0.4, 1.0 - (ageInMinutes / 600) * 0.6);
+                if (opacity <= 0.4) {
+                    return { color: '#90EE90', opacity: 0.4, stage: '연두색' };
+                }
+                return { color: '#FFFFFF', opacity: opacity, stage: '흰색' };
+            } else if (ageInMinutes < 1440) {
+                // 2단계: 초록색 (40%, 14시간)
+                return { color: '#32CD32', opacity: 0.4, stage: '초록색' };
+            } else if (ageInMinutes < 10080) {
+                // 3단계: 주황색 (40%, 7일)
+                return { color: '#FFA500', opacity: 0.4, stage: '주황색' };
+            } else if (ageInMinutes < 43200) {
+                // 4단계: 빨간색 (40%, 30일)
+                return { color: '#FF0000', opacity: 0.4, stage: '빨간색' };
+            } else {
+                // 5단계: 갈색 (40%, 영구)
+                return { color: '#8B4513', opacity: 0.4, stage: '갈색' };
+            }
+        }
+
+        // 모든 경로 업데이트
+        function updateRoutes() {
+            routes.forEach(route => {
+                const ageInMinutes = (currentTime - route.createdAt) / (1000 * 60);
+                const state = getMemoryState(ageInMinutes);
+                
+                if (route.polyline) {
+                    route.polyline.setStyle({
+                        color: state.color,
+                        opacity: state.opacity
+                    });
+                }
+            });
+        }
+
+        // 시뮬레이션 토글
+        function toggleSimulation() {
+            if (simulationRunning) {
+                simulationRunning = false;
+                clearInterval(interval);
+                document.getElementById('simBtn').textContent = '시뮬레이션 시작';
+                document.getElementById('status').textContent = '정지';
+            } else {
+                simulationRunning = true;
+                interval = setInterval(() => {
+                    currentTime = new Date(currentTime.getTime() + speed * 60000);
+                    updateTime();
+                    updateRoutes();
+                }, 1000);
+                document.getElementById('simBtn').textContent = '시뮬레이션 정지';
+                document.getElementById('status').textContent = '실행중';
+            }
+        }
+
+        // 속도 설정
+        function setSpeed(newSpeed) {
+            speed = newSpeed;
+            document.getElementById('speedText').textContent = newSpeed + 'x';
+            
+            // 활성 버튼 표시
+            document.querySelectorAll('.speed').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        // 테스트 경로 추가
+        function addTestRoute() {
+            if (!map) return;
+            
+            const center = map.getCenter();
+            const offset = 0.003; // 약 300m 범위
+            
+            const start = L.latLng(
+                center.lat + (Math.random() - 0.5) * offset,
+                center.lng + (Math.random() - 0.5) * offset
+            );
+            const end = L.latLng(
+                center.lat + (Math.random() - 0.5) * offset,
+                center.lng + (Math.random() - 0.5) * offset
+            );
+            
+            createRoute(start, end);
+        }
+
+        // 지도 스타일 변경
+        function changeMapStyle() {
+            currentMapStyle = (currentMapStyle + 1) % mapStyles.length;
+            const style = mapStyles[currentMapStyle];
+            
+            // 기존 타일 레이어 제거
+            map.eachLayer(function(layer) {
+                if (layer instanceof L.TileLayer) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            // 새 타일 레이어 추가
+            L.tileLayer(style.url, {
+                attribution: style.attribution,
+                maxZoom: 19
+            }).addTo(map);
+            
+            console.log(`지도 스타일 변경: ${style.name}`);
+        }
+
+        // 모든 경로 삭제
+        function clearAll() {
+            if (confirm('모든 경로를 삭제하시겠습니까?')) {
+                routes.forEach(route => {
+                    if (route.polyline) {
+                        map.removeLayer(route.polyline);
+                    }
+                });
+                routes = [];
+                clickPoints = [];
+                
+                // 임시 마커들도 제거
+                map.eachLayer(function(layer) {
+                    if (layer instanceof L.CircleMarker) {
+                        map.removeLayer(layer);
+                    }
+                });
+                
+                updateStats();
+                console.log('모든 경로 삭제됨');
+            }
+        }
+
+        // 현재 위치로 이동
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const latlng = [position.coords.latitude, position.coords.longitude];
+                        map.setView(latlng, 16);
+                        
+                        // 현재 위치 마커 표시 (3초 후 사라짐)
+                        const locationMarker = L.marker(latlng, {
+                            icon: L.divIcon({
+                                className: 'current-location',
+                                html: '<div style="background: #4ecdc4; width: 12px; height: 12px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(78,205,196,0.6);"></div>',
+                                iconSize: [18, 18],
+                                iconAnchor: [9, 9]
+                            })
+                        }).addTo(map);
+                        
+                        setTimeout(() => {
+                            map.removeLayer(locationMarker);
+                        }, 3000);
+                        
+                        console.log('현재 위치로 이동 완료');
+                    },
+                    (error) => {
+                        console.error('위치 가져오기 실패:', error);
+                        alert('현재 위치를 가져올 수 없습니다.\n위치 서비스를 허용해주세요.');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    }
+                );
+            } else {
+                alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+            }
+        }
+
+        // 도움말
+        function showHelp() {
+            alert(`🗺️ 나의 대동여지도 사용법
+
+📍 경로 그리기:
+• 지도를 두 번 클릭하여 경로 생성
+• 첫 번째 클릭: 시작점 (빨간 점)
+• 두 번째 클릭: 끝점 (흰색 선 완성)
+
+⏱️ 5단계 기억 시스템:
+• 1단계: 흰색 (10시간 동안 서서히 흐려짐)
+• 2단계: 초록색 (14시간)
+• 3단계: 주황색 (7일)
+• 4단계: 빨간색 (30일)  
+• 5단계: 갈색 (영구)
+
+🚀 시뮬레이션:
+• 시간 가속으로 빠른 변화 확인
+• 3600x로 30일을 30초에 시뮬레이션
+
+🎨 지도 스타일:
+• 4가지 테마: Dark, Light, Standard, Satellite
+
+⌨️ 키보드 단축키:
+• 스페이스바: 시뮬레이션 시작/정지
+• R: 테스트 경로 추가
+• C: 모든 경로 삭제
+
+나만의 기억 지도를 만들어보세요!`);
+        }
+
+        // UI 업데이트
+        function updateTime() {
+            document.getElementById('timeDisplay').textContent = 
+                currentTime.toLocaleString('ko-KR');
+        }
+
+        function updateStats() {
+            document.getElementById('routeCount').textContent = routes.length;
+        }
+
+        // 키보드 단축키
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case ' ':
+                    e.preventDefault();
+                    toggleSimulation();
+                    break;
+                case 'r':
+                case 'R':
+                    addTestRoute();
+                    break;
+                case 'c':
+                case 'C':
+                    clearAll();
+                    break;
+                case 'm':
+                case 'M':
+                    changeMapStyle();
+                    break;
+            }
+        });
+
+        // 초기화 - 더 안전한 로딩 방식
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTime();
+            updateStats();
+            
+            // Leaflet 라이브러리 로딩 대기 (최대 5초)
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            function checkLeaflet() {
+                attempts++;
+                if (typeof L !== 'undefined') {
+                    console.log('Leaflet 로딩 완료, 지도 초기화 시작');
+                    initMap();
+                } else if (attempts < maxAttempts) {
+                    console.log(`Leaflet 로딩 대기 중... (${attempts}/${maxAttempts})`);
+                    setTimeout(checkLeaflet, 500);
+                } else {
+                    console.error('Leaflet 로딩 실패');
+                    document.getElementById('loading').innerHTML = `
+                        ❌ 지도 라이브러리 로딩 실패<br>
+                        <small>인터넷 연결을 확인하고<br>페이지를 새로고침해주세요</small><br>
+                        <button onclick="location.reload()" style="margin-top:10px; padding:5px 10px; background:#4ecdc4; border:none; border-radius:5px; color:white; cursor:pointer;">
+                            🔄 새로고침
+                        </button>
+                    `;
+                }
+            }
+            
+            checkLeaflet();
+        });
+
+        // 에러 처리
+        window.addEventListener('error', (e) => {
+            console.error('애플리케이션 에러:', e.error);
+        });
+
+        // 페이지 언로드 시 정리
+        window.addEventListener('beforeunload', () => {
+            if (interval) {
+                clearInterval(interval);
+            }
+        });
+    </script>
+</body>
+</html>
