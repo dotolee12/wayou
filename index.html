@@ -619,7 +619,7 @@
                 currentRoute.totalDistance = totalDistance;
             }
 
-            // 경로에 점 추가
+            // 경로에 점 추가 (시뮬레이션 시간 사용)
             currentRoute.coordinates.push({
                 lat: latitude,
                 lng: longitude,
@@ -644,6 +644,8 @@
                         lineCap: 'round',
                         lineJoin: 'round'
                     }).addTo(map);
+                    
+                    console.log('경로 라인 생성됨 - 좌표 수:', currentRoute.coordinates.length);
                 }
             }
 
@@ -652,7 +654,7 @@
             // 통계 업데이트
             updateStats();
             
-            console.log(`위치 업데이트: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, 거리: ${totalDistance.toFixed(0)}m`);
+            console.log(`위치 업데이트: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, 거리: ${totalDistance.toFixed(0)}m, 좌표 수: ${currentRoute.coordinates.length}`);
         }
 
         // 추적 일시정지
@@ -674,26 +676,62 @@
         function stopTracking() {
             if (!isTracking) return;
 
+            console.log('추적 정지 시작...');
+
             isTracking = false;
             isPaused = false;
             
             if (watchId) {
                 navigator.geolocation.clearWatch(watchId);
                 watchId = null;
+                console.log('GPS 감시 중지됨');
             }
 
-            // 현재 경로 저장
-            if (currentRoute && currentRoute.coordinates.length > 1) {
-                routes.push(currentRoute);
-                saveRoutesToStorage();
-                console.log('경로 저장됨:', currentRoute.coordinates.length, '점');
+            // 현재 경로 저장 (개선된 조건)
+            if (currentRoute) {
+                console.log('현재 경로 확인:', {
+                    id: currentRoute.id,
+                    coordinates: currentRoute.coordinates.length,
+                    totalDistance: currentRoute.totalDistance,
+                    hasPolyline: !!currentRoute.polyline
+                });
+
+                // 최소 2개 이상의 좌표가 있으면 저장
+                if (currentRoute.coordinates.length >= 2) {
+                    // routes 배열에 추가
+                    routes.push(currentRoute);
+                    
+                    // localStorage에 저장
+                    saveRoutesToStorage();
+                    
+                    console.log('✅ 경로 저장 완료:', {
+                        routeId: currentRoute.id,
+                        totalRoutes: routes.length,
+                        coordinates: currentRoute.coordinates.length,
+                        distance: currentRoute.totalDistance.toFixed(0) + 'm'
+                    });
+                } else {
+                    console.log('❌ 경로가 너무 짧아 저장하지 않음 (좌표 수:', currentRoute.coordinates.length, ')');
+                    
+                    // 폴리라인이 있다면 지도에서 제거
+                    if (currentRoute.polyline) {
+                        map.removeLayer(currentRoute.polyline);
+                    }
+                }
+            } else {
+                console.log('❌ 저장할 현재 경로가 없음');
             }
 
             currentRoute = null;
+            totalDistance = 0;
+            lastPosition = null;
+            trackingStartTime = null;
+            
             updateTrackingStatus('stopped', '추적 중지됨');
             updateUI();
+            updateStats();
             
-            console.log('GPS 추적 완전 정지됨');
+            console.log('GPS 추적 완전 정지 완료. 총 저장된 경로:', routes.length, '개');
         }
 
         // 내 위치로 지도 중심 이동
@@ -845,16 +883,26 @@
                 return;
             }
             
-            if (confirm(`저장된 ${routes.length}개의 경로를 모두 삭제하시겠습니까?`)) {
+            const routeCount = routes.length;
+            if (confirm(`저장된 ${routeCount}개의 경로를 모두 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
+                // 지도에서 모든 경로 제거
                 routes.forEach(route => {
                     if (route.polyline) {
                         map.removeLayer(route.polyline);
                     }
                 });
+                
+                // 배열 초기화
                 routes = [];
+                
+                // localStorage에서 제거
                 localStorage.removeItem('daedongyeojido_routes');
+                
+                // UI 업데이트
                 updateStats();
-                console.log('모든 경로 삭제됨');
+                
+                console.log('✅ 모든 경로 삭제 완료:', routeCount, '개 삭제됨');
+                alert(`${routeCount}개의 경로가 삭제되었습니다.`);
             }
         }
 
@@ -886,13 +934,22 @@
                     id: route.id,
                     coordinates: route.coordinates,
                     createdAt: route.createdAt.toISOString(),
-                    totalDistance: route.totalDistance
+                    totalDistance: route.totalDistance || 0
                 }));
                 
                 localStorage.setItem('daedongyeojido_routes', JSON.stringify(routeData));
-                console.log('경로 데이터 저장됨:', routeData.length, '개');
+                console.log('✅ 경로 데이터 저장 완료:', routeData.length, '개');
+                
+                // 저장 용량 확인
+                const storageSize = JSON.stringify(routeData).length;
+                const storageMB = (storageSize / 1024 / 1024).toFixed(2);
+                console.log('저장 용량:', storageMB, 'MB');
+                
             } catch (error) {
-                console.error('경로 저장 실패:', error);
+                console.error('❌ 경로 저장 실패:', error);
+                if (error.name === 'QuotaExceededError') {
+                    alert('저장 공간이 부족합니다. 오래된 경로를 삭제해주세요.');
+                }
             }
         }
 
@@ -900,16 +957,20 @@
         function loadSavedRoutes() {
             try {
                 const savedData = localStorage.getItem('daedongyeojido_routes');
-                if (!savedData) return;
+                if (!savedData) {
+                    console.log('저장된 경로 데이터 없음');
+                    return;
+                }
                 
                 const routeData = JSON.parse(savedData);
+                console.log('저장된 경로 데이터 발견:', routeData.length, '개');
                 
-                routeData.forEach(data => {
+                routeData.forEach((data, index) => {
                     const route = {
                         id: data.id,
                         coordinates: data.coordinates,
                         createdAt: new Date(data.createdAt),
-                        totalDistance: data.totalDistance,
+                        totalDistance: data.totalDistance || 0,
                         polyline: null
                     };
                     
@@ -926,15 +987,24 @@
                             lineCap: 'round',
                             lineJoin: 'round'
                         }).addTo(map);
+                        
+                        console.log(`경로 ${index + 1} 복원:`, {
+                            id: route.id,
+                            coordinates: route.coordinates.length,
+                            color: state.color,
+                            age: Math.floor(ageInMinutes) + '분 전'
+                        });
                     }
                     
                     routes.push(route);
                 });
                 
                 updateStats();
-                console.log('저장된 경로 불러옴:', routes.length, '개');
+                console.log('✅ 저장된 경로 불러오기 완료:', routes.length, '개');
             } catch (error) {
-                console.error('경로 불러오기 실패:', error);
+                console.error('❌ 경로 불러오기 실패:', error);
+                // 손상된 데이터 제거
+                localStorage.removeItem('daedongyeojido_routes');
             }
         }
 
@@ -999,21 +1069,30 @@
 • 5단계: 갈색 (영구)
 
 ⚡ 시뮬레이션:
-• 시간 가속으로 기억 변화 과정 확인
+• "시뮬레이션 시작" + 시간 가속으로 기억 변화 확인
 • 3600x로 30일을 30초에 시뮬레이션
+• 실제 경로가 시간에 따라 색상 변화
 
-📱 주의사항:
-• 위치 권한 필수
-• 배터리 소모가 클 수 있음
-• 실내에서는 GPS 정확도 낮음
-• 데이터는 브라우저에만 저장됨
-
-🚀 고급 기능:
+🔧 고급 기능:
 • 📤 내보내기: JSON 파일로 데이터 백업
 • 🎯 내 위치로: 현재 위치로 지도 이동
 • 🎨 지도 변경: 3가지 지도 스타일
+• 💾 자동 저장: 브라우저에 경로 자동 보존
 
-실제로 걸으면서 나만의 기억 지도를 만들어보세요!`);
+📱 사용 팁:
+• 야외에서 사용 (실내는 GPS 신호 약함)
+• 최소 5m 이상 이동해야 기록됨
+• 정확도 50m 이하만 기록 (노이즈 제거)
+• 배터리 소모 주의
+• 브라우저 열어두기 (백그라운드 제한)
+
+🎯 문제 해결:
+• 위치 권한 허용 필수
+• 경로가 안 보이면 "완전정지" 후 확인
+• Console(F12)에서 상세 로그 확인 가능
+
+진짜 GPS로 걸은 길이 기억의 색으로 변해가는 
+나만의 디지털 대동여지도를 만들어보세요! 🚶‍♂️✨`);
         }
 
         // 실시간 통계 업데이트 (1초마다)
