@@ -509,8 +509,8 @@
             <!-- 플로팅 컨트롤 버튼들 -->
             <div class="floating-controls">
                 <div class="control-button" id="floatingTrackBtn" onclick="toggleTracking()" title="GPS 추적">📍</div>
-                <div class="control-button" onclick="toggleStats()" title="통계 보기">📊</div>
-                <div class="control-button" onclick="toggleSimulation()" id="floatingSimBtn" title="시뮬레이션">⏱️</div>
+                <div class="control-button" onclick="toggleStatsPopup()" title="통계 보기">📊</div>
+                <div class="control-button" onclick="toggleSimulationFromFloat()" id="floatingSimBtn" title="시뮬레이션">⏱️</div>
                 <div class="control-button" onclick="centerOnLocation()" title="내 위치로">🎯</div>
                 <div class="control-button" onclick="changeMapStyle()" title="지도 스타일">🎨</div>
             </div>
@@ -875,12 +875,55 @@
             console.log('GPS 추적 완전 정지 완료. 총 저장된 경로:', routes.length, '개');
         }
 
-        // 내 위치로 지도 중심 이동
+        // 현재 위치로 지도 중심 이동
         function centerOnLocation() {
+            console.log('내 위치로 이동 호출됨');
+            
             if (currentLocationMarker) {
                 const pos = currentLocationMarker.getLatLng();
                 map.setView([pos.lat, pos.lng], 16);
+                console.log('현재 위치로 이동 완료:', pos);
+                
+                // 피드백 제공
+                const popup = document.getElementById('statsPopup');
+                if (popup) {
+                    popup.innerHTML = `
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 18px; margin-bottom: 5px;">🎯</div>
+                            <div style="color: #4ecdc4; font-weight: bold;">내 위치로 이동</div>
+                            <div style="font-size: 12px; opacity: 0.8;">지도 중심 이동됨</div>
+                        </div>
+                    `;
+                    popup.classList.add('show');
+                    
+                    setTimeout(() => {
+                        popup.classList.remove('show');
+                        // 원래 내용으로 복원
+                        popup.innerHTML = `
+                            <h4 style="margin-bottom: 10px; color: #4ecdc4;">📊 실시간 통계</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupDistance">0m</div>
+                                    <div style="opacity: 0.8;">총 거리</div>
+                                </div>
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupTime">00:00</div>
+                                    <div style="opacity: 0.8;">추적 시간</div>
+                                </div>
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupRoutes">0</div>
+                                    <div style="opacity: 0.8;">저장된 경로</div>
+                                </div>
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupStatus">정지</div>
+                                    <div style="opacity: 0.8;">상태</div>
+                                </div>
+                            </div>
+                        `;
+                    }, 2000);
+                }
             } else {
+                console.log('현재 위치 마커가 없음, GPS 위치 요청');
                 requestLocation();
             }
         }
@@ -935,9 +978,94 @@
             });
         }
 
-        // UI 업데이트
+        // 플로팅 UI 관련 함수들
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+            
+            // 모바일에서는 show 클래스도 토글
+            if (window.innerWidth <= 768) {
+                sidebar.classList.toggle('show');
+            }
+            
+            console.log('사이드바 토글됨');
+        }
+
+        function toggleStatsPopup() {
+            const popup = document.getElementById('statsPopup');
+            const isShowing = popup.classList.contains('show');
+            
+            console.log('통계 팝업 토글:', !isShowing);
+            
+            if (isShowing) {
+                popup.classList.remove('show');
+            } else {
+                updateStatsPopup();
+                popup.classList.add('show');
+                
+                // 5초 후 자동 숨김
+                setTimeout(() => {
+                    popup.classList.remove('show');
+                }, 5000);
+            }
+        }
+
+        function toggleSimulationFromFloat() {
+            console.log('플로팅 버튼에서 시뮬레이션 토글');
+            toggleSimulation();
+        }
+
+        function updateStatsPopup() {
+            const distanceText = totalDistance >= 1000 ? 
+                `${(totalDistance/1000).toFixed(1)}km` : 
+                `${totalDistance.toFixed(0)}m`;
+            
+            document.getElementById('popupDistance').textContent = distanceText;
+            document.getElementById('popupRoutes').textContent = routes.length;
+            
+            if (trackingStartTime && isTracking) {
+                const elapsed = new Date() - trackingStartTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('popupTime').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                document.getElementById('popupTime').textContent = '00:00';
+            }
+            
+            let status = '정지';
+            if (isTracking) {
+                status = isPaused ? '일시정지' : '추적중';
+            }
+            document.getElementById('popupStatus').textContent = status;
+            
+            console.log('통계 팝업 업데이트됨:', {
+                distance: distanceText,
+                routes: routes.length,
+                status: status
+            });
+        }
+
+        function toggleTracking() {
+            console.log('플로팅 버튼에서 추적 토글');
+            const floatingBtn = document.getElementById('floatingTrackBtn');
+            
+            if (!isTracking) {
+                startTracking();
+                floatingBtn.classList.add('tracking');
+                floatingBtn.title = 'GPS 추적 중 (클릭하여 정지)';
+                console.log('추적 시작됨');
+            } else {
+                stopTracking();
+                floatingBtn.classList.remove('tracking');
+                floatingBtn.title = 'GPS 추적';
+                console.log('추적 정지됨');
+            }
+        }
+
+        // 기존 함수들 업데이트
         function updateUI() {
-            // 버튼 상태 업데이트
+            // 사이드바 버튼 상태 업데이트
             const startBtn = document.getElementById('startBtn');
             const pauseBtn = document.getElementById('pauseBtn');
             const stopBtn = document.getElementById('stopBtn');
@@ -952,6 +1080,26 @@
                 startBtn.textContent = '📍 추적 시작';
                 pauseBtn.className = 'stopped';
                 stopBtn.className = 'stopped';
+            }
+            
+            // 플로팅 버튼 상태 업데이트
+            const floatingBtn = document.getElementById('floatingTrackBtn');
+            const floatingSimBtn = document.getElementById('floatingSimBtn');
+            
+            if (isTracking) {
+                floatingBtn.classList.add('tracking');
+                floatingBtn.title = 'GPS 추적 중 (클릭하여 정지)';
+            } else {
+                floatingBtn.classList.remove('tracking');
+                floatingBtn.title = 'GPS 추적 시작';
+            }
+            
+            if (simulationRunning) {
+                floatingSimBtn.classList.add('active');
+                floatingSimBtn.title = '시뮬레이션 중 (클릭하여 정지)';
+            } else {
+                floatingSimBtn.classList.remove('active');
+                floatingSimBtn.title = '시뮬레이션 시작';
             }
         }
 
@@ -992,10 +1140,20 @@
 
         // 시뮬레이션 토글
         function toggleSimulation() {
+            console.log('시뮬레이션 토글 호출됨, 현재 상태:', simulationRunning);
+            
             if (simulationRunning) {
                 simulationRunning = false;
                 clearInterval(interval);
                 document.getElementById('simBtn').textContent = '시뮬레이션 시작';
+                
+                const floatingSimBtn = document.getElementById('floatingSimBtn');
+                if (floatingSimBtn) {
+                    floatingSimBtn.classList.remove('active');
+                    floatingSimBtn.title = '시뮬레이션 시작';
+                }
+                
+                console.log('시뮬레이션 정지됨');
             } else {
                 simulationRunning = true;
                 interval = setInterval(() => {
@@ -1003,7 +1161,16 @@
                     updateRoutes();
                 }, 1000);
                 document.getElementById('simBtn').textContent = '시뮬레이션 정지';
+                
+                const floatingSimBtn = document.getElementById('floatingSimBtn');
+                if (floatingSimBtn) {
+                    floatingSimBtn.classList.add('active');
+                    floatingSimBtn.title = '시뮬레이션 중 (클릭하여 정지)';
+                }
+                
+                console.log('시뮬레이션 시작됨, 속도:', speed + 'x');
             }
+            updateUI();
         }
 
         // 속도 설정
@@ -1049,8 +1216,17 @@
 
         // 지도 스타일 변경
         function changeMapStyle() {
+            console.log('지도 스타일 변경 호출됨');
+            
+            if (!map) {
+                console.error('지도가 초기화되지 않음');
+                return;
+            }
+            
             currentMapStyle = (currentMapStyle + 1) % mapStyles.length;
             const style = mapStyles[currentMapStyle];
+            
+            console.log('새 지도 스타일:', style.name);
             
             // 기존 타일 레이어 제거
             map.eachLayer(function(layer) {
@@ -1065,7 +1241,48 @@
                 maxZoom: 19
             }).addTo(map);
             
-            console.log(`지도 스타일 변경: ${style.name}`);
+            console.log(`✅ 지도 스타일 변경 완료: ${style.name}`);
+            
+            // 사용자에게 피드백
+            if (typeof alert !== 'undefined') {
+                const popup = document.getElementById('statsPopup');
+                if (popup) {
+                    popup.innerHTML = `
+                        <div style="text-align: center; padding: 10px;">
+                            <div style="font-size: 18px; margin-bottom: 5px;">🎨</div>
+                            <div style="color: #4ecdc4; font-weight: bold;">${style.name}</div>
+                            <div style="font-size: 12px; opacity: 0.8;">지도 스타일 변경됨</div>
+                        </div>
+                    `;
+                    popup.classList.add('show');
+                    
+                    setTimeout(() => {
+                        popup.classList.remove('show');
+                        // 원래 내용으로 복원
+                        popup.innerHTML = `
+                            <h4 style="margin-bottom: 10px; color: #4ecdc4;">📊 실시간 통계</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupDistance">0m</div>
+                                    <div style="opacity: 0.8;">총 거리</div>
+                                </div>
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupTime">00:00</div>
+                                    <div style="opacity: 0.8;">추적 시간</div>
+                                </div>
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupRoutes">0</div>
+                                    <div style="opacity: 0.8;">저장된 경로</div>
+                                </div>
+                                <div>
+                                    <div style="color: #4ecdc4; font-weight: bold;" id="popupStatus">정지</div>
+                                    <div style="opacity: 0.8;">상태</div>
+                                </div>
+                            </div>
+                        `;
+                    }, 2000);
+                }
+            }
         }
 
         // 경로 저장 (localStorage)
@@ -1240,8 +1457,17 @@
         setInterval(() => {
             if (isTracking && !isPaused) {
                 updateStats();
+                updateStatsPopup(); // 팝업도 함께 업데이트
             }
         }, 1000);
+
+        // 화면 크기 변경 시 사이드바 처리
+        window.addEventListener('resize', () => {
+            const sidebar = document.getElementById('sidebar');
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('show');
+            }
+        });
 
         // 초기화
         document.addEventListener('DOMContentLoaded', () => {
