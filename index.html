@@ -27,6 +27,7 @@
         .container {
             display: flex;
             height: 100vh;
+            position: relative;
         }
 
         .sidebar {
@@ -36,6 +37,99 @@
             overflow-y: auto;
             backdrop-filter: blur(10px);
             border-right: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .sidebar.collapsed {
+            width: 0;
+            padding: 0;
+            border: none;
+            overflow: hidden;
+        }
+
+        .floating-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1500;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-button {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-button:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: scale(1.05);
+        }
+
+        .control-button.active {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            border-color: #ff6b6b;
+        }
+
+        .control-button.tracking {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            border-color: #2ecc71;
+            animation: pulse 2s infinite;
+        }
+
+        .stats-popup {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            min-width: 200px;
+            backdrop-filter: blur(10px);
+            z-index: 1400;
+            display: none;
+        }
+
+        .stats-popup.show {
+            display: block;
+        }
+
+        .toggle-sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            z-index: 1600;
+            backdrop-filter: blur(10px);
+        }
+
+        .sidebar.collapsed + .main .toggle-sidebar {
+            display: flex;
         }
 
         .main {
@@ -246,43 +340,56 @@
 
         /* 반응형 디자인 */
         @media (max-width: 768px) {
-            .container { 
-                flex-direction: column; 
+            .sidebar {
+                position: fixed;
+                height: 100vh;
+                left: -300px;
+                top: 0;
+                z-index: 2000;
             }
-            .sidebar { 
-                width: 100%; 
-                height: 45vh;
-                padding: 15px;
+            
+            .sidebar.show {
+                left: 0;
             }
+            
+            .sidebar.collapsed {
+                left: -300px;
+            }
+            
             .main { 
-                height: 55vh; 
+                width: 100%;
             }
+            
             #map { 
-                height: 55vh; 
+                height: 100vh; 
             }
-            h1 {
-                font-size: 16px;
+            
+            .toggle-sidebar {
+                display: flex !important;
             }
-            button {
-                font-size: 11px;
-                padding: 6px 10px;
+            
+            .floating-controls {
+                top: 70px;
             }
         }
 
         @media (max-width: 480px) {
-            .sidebar {
-                height: 50vh;
-                padding: 12px;
+            .floating-controls {
+                top: 70px;
+                left: 10px;
             }
-            .main {
-                height: 50vh;
+            
+            .control-button {
+                width: 45px;
+                height: 45px;
+                font-size: 16px;
             }
-            #map {
-                height: 50vh;
-            }
-            .stats-grid {
-                grid-template-columns: 1fr;
-                gap: 5px;
+            
+            .stats-popup {
+                right: 10px;
+                top: 70px;
+                min-width: 180px;
+                font-size: 12px;
             }
         }
     </style>
@@ -294,7 +401,7 @@
     </div>
 
     <div class="container">
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <h1>🗺️ 나의 대동여지도</h1>
             
             <div class="description">
@@ -396,8 +503,42 @@
         </div>
 
         <div class="main">
+            <!-- 사이드바 토글 버튼 -->
+            <div class="toggle-sidebar" onclick="toggleSidebar()">☰</div>
+            
+            <!-- 플로팅 컨트롤 버튼들 -->
+            <div class="floating-controls">
+                <div class="control-button" id="floatingTrackBtn" onclick="toggleTracking()" title="GPS 추적">📍</div>
+                <div class="control-button" onclick="toggleStats()" title="통계 보기">📊</div>
+                <div class="control-button" onclick="toggleSimulation()" id="floatingSimBtn" title="시뮬레이션">⏱️</div>
+                <div class="control-button" onclick="centerOnLocation()" title="내 위치로">🎯</div>
+                <div class="control-button" onclick="changeMapStyle()" title="지도 스타일">🎨</div>
+            </div>
+
+            <!-- 통계 팝업 -->
+            <div class="stats-popup" id="statsPopup">
+                <h4 style="margin-bottom: 10px; color: #4ecdc4;">📊 실시간 통계</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupDistance">0m</div>
+                        <div style="opacity: 0.8;">총 거리</div>
+                    </div>
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupTime">00:00</div>
+                        <div style="opacity: 0.8;">추적 시간</div>
+                    </div>
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupRoutes">0</div>
+                        <div style="opacity: 0.8;">저장된 경로</div>
+                    </div>
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupStatus">정지</div>
+                        <div style="opacity: 0.8;">상태</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="controls">
-                <button onclick="changeMapStyle()" title="지도 스타일 변경">🎨</button>
                 <button onclick="showSettings()" title="설정">⚙️</button>
                 <button onclick="showHelp()" title="도움말">❓</button>
             </div>
