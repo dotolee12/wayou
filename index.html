@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>나의 대동여지도</title>
-    <meta name="description" content="시간에 따라 변화하는 나만의 이동 경로 기억 지도">
-    <meta name="keywords" content="지도, 경로, 기억, 시각화, 대동여지도">
+    <title>나의 대동여지도 - GPS 경로 추적</title>
+    <meta name="description" content="GPS로 실제 걸은 길을 추적하고 시간에 따라 변화하는 기억 지도">
+    <meta name="keywords" content="GPS, 경로추적, 지도, 기억, 대동여지도">
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
@@ -47,7 +47,7 @@
             color: #4ecdc4;
             margin-bottom: 20px;
             text-align: center;
-            font-size: 20px;
+            font-size: 18px;
             background: linear-gradient(45deg, #4ecdc4, #44a08d);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -78,6 +78,7 @@
             margin: 3px;
             font-size: 12px;
             transition: all 0.3s ease;
+            width: calc(50% - 6px);
         }
 
         button:hover {
@@ -85,18 +86,70 @@
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
         }
 
-        button.active {
+        button.active, button.tracking {
             background: linear-gradient(45deg, #ff6b6b, #ee5a52);
         }
 
-        .time-display {
-            font-weight: bold;
-            text-align: center;
+        button.stopped {
+            background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+        }
+
+        button.full-width {
+            width: calc(100% - 6px);
+        }
+
+        .tracking-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
             padding: 10px;
             background: rgba(0, 0, 0, 0.5);
             border-radius: 8px;
             margin-bottom: 10px;
+            font-size: 12px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-tracking { background: #2ecc71; }
+        .status-stopped { background: #e74c3c; }
+        .status-paused { background: #f39c12; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 11px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-value {
             font-size: 14px;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            opacity: 0.8;
         }
 
         .legend {
@@ -125,19 +178,6 @@
             width: 100%;
         }
 
-        .stats {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            margin-bottom: 5px;
-        }
-
-        .stats span {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2px 6px;
-            border-radius: 3px;
-        }
-
         .loading {
             position: absolute;
             top: 50%;
@@ -162,6 +202,7 @@
             background: rgba(0, 0, 0, 0.7);
             border: 1px solid rgba(255, 255, 255, 0.3);
             margin-left: 5px;
+            width: auto;
         }
 
         .description {
@@ -183,6 +224,26 @@
             padding-top: 10px;
         }
 
+        .permission-banner {
+            background: rgba(241, 196, 15, 0.2);
+            color: #f1c40f;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 11px;
+            border: 1px solid rgba(241, 196, 15, 0.3);
+            text-align: center;
+        }
+
+        .current-location {
+            background: #4ecdc4;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 15px rgba(78,205,196,0.8);
+        }
+
         /* 반응형 디자인 */
         @media (max-width: 768px) {
             .container { 
@@ -190,30 +251,46 @@
             }
             .sidebar { 
                 width: 100%; 
-                height: 40vh; 
+                height: 45vh;
+                padding: 15px;
             }
             .main { 
-                height: 60vh; 
+                height: 55vh; 
             }
             #map { 
-                height: 60vh; 
+                height: 55vh; 
+            }
+            h1 {
+                font-size: 16px;
+            }
+            button {
+                font-size: 11px;
+                padding: 6px 10px;
             }
         }
 
         @media (max-width: 480px) {
             .sidebar {
-                padding: 15px;
+                height: 50vh;
+                padding: 12px;
             }
-            h1 {
-                font-size: 18px;
+            .main {
+                height: 50vh;
+            }
+            #map {
+                height: 50vh;
+            }
+            .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 5px;
             }
         }
     </style>
 </head>
 <body>
     <div class="loading" id="loading">
-        🗺️ 지도 로딩 중...<br>
-        <small>잠시만 기다려주세요</small>
+        🗺️ GPS 추적 시스템 로딩 중...<br>
+        <small>위치 권한을 허용해주세요</small>
     </div>
 
     <div class="container">
@@ -221,34 +298,61 @@
             <h1>🗺️ 나의 대동여지도</h1>
             
             <div class="description">
-                <strong>내가 다닌 길의 기억</strong><br>
-                지도를 클릭하여 경로를 그리고,<br>
-                시간이 지나면서 기억이 변화하는 모습을 확인하세요.
+                <strong>실제 GPS로 걸은 길 추적</strong><br>
+                위치 권한을 허용하고 추적을 시작하면<br>
+                실제로 걸은 경로가 기록됩니다.
+            </div>
+
+            <div id="permissionBanner" class="permission-banner" style="display: none;">
+                📍 위치 권한이 필요합니다!<br>
+                <button onclick="requestLocation()" style="margin-top: 5px; font-size: 10px;">권한 요청</button>
             </div>
             
             <div class="section">
+                <h3>🎯 GPS 추적 제어</h3>
+                <div class="tracking-status" id="trackingStatus">
+                    <div class="status-indicator status-stopped"></div>
+                    <span>추적 중지됨</span>
+                </div>
+                <button onclick="startTracking()" id="startBtn" class="full-width">📍 추적 시작</button>
+                <button onclick="pauseTracking()" id="pauseBtn" class="stopped">⏸️ 일시정지</button>
+                <button onclick="stopTracking()" id="stopBtn" class="stopped">⏹️ 완전정지</button>
+                <br><br>
+                <button onclick="centerOnLocation()" class="full-width">🎯 내 위치로</button>
+            </div>
+
+            <div class="section">
+                <h3>📊 실시간 통계</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalDistance">0m</div>
+                        <div class="stat-label">총 거리</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="currentSpeed">0</div>
+                        <div class="stat-label">현재 속도 (km/h)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="trackingTime">00:00</div>
+                        <div class="stat-label">추적 시간</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="routeCount">0</div>
+                        <div class="stat-label">저장된 경로</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
                 <h3>⏱️ 시뮬레이션</h3>
                 <button onclick="toggleSimulation()" id="simBtn">시뮬레이션 시작</button>
-                <button onclick="addTestRoute()">테스트 경로</button>
-                <button onclick="clearAll()">모두 삭제</button>
+                <button onclick="clearAllRoutes()">모든 경로 삭제</button>
                 <br><br>
                 <strong>시간 가속:</strong><br>
                 <button onclick="setSpeed(1)" class="speed active">1x</button>
                 <button onclick="setSpeed(60)" class="speed">60x</button>
                 <button onclick="setSpeed(600)" class="speed">600x</button>
                 <button onclick="setSpeed(3600)" class="speed">3600x</button>
-            </div>
-
-            <div class="section">
-                <h3>📊 현재 상태</h3>
-                <div class="time-display" id="timeDisplay">2024-01-01 12:00:00</div>
-                <div class="stats">
-                    <span>가속: <span id="speedText">1x</span></span>
-                    <span>상태: <span id="status">정지</span></span>
-                </div>
-                <div class="stats">
-                    <span>경로: <span id="routeCount">0</span>개</span>
-                </div>
             </div>
 
             <div class="section">
@@ -283,19 +387,19 @@
 
             <div class="footer">
                 <p><strong>나의 대동여지도</strong></p>
-                <p>시간에 따른 기억의 변화</p>
+                <p>실제 GPS 경로 추적 시스템</p>
                 <p style="margin-top: 5px;">
-                    <a href="https://github.com" style="color: #4ecdc4; text-decoration: none;">GitHub</a> |
-                    <a href="#" onclick="showHelp()" style="color: #4ecdc4; text-decoration: none;">도움말</a>
+                    <a href="#" onclick="showHelp()" style="color: #4ecdc4; text-decoration: none;">❓ 사용법</a> |
+                    <a href="#" onclick="exportData()" style="color: #4ecdc4; text-decoration: none;">📤 내보내기</a>
                 </p>
             </div>
         </div>
 
         <div class="main">
             <div class="controls">
-                <button onclick="getCurrentLocation()" title="현재 위치로 이동">📍 내 위치</button>
-                <button onclick="changeMapStyle()" title="지도 스타일 변경">🎨 지도 변경</button>
-                <button onclick="showHelp()" title="사용법 보기">❓ 도움말</button>
+                <button onclick="changeMapStyle()" title="지도 스타일 변경">🎨</button>
+                <button onclick="showSettings()" title="설정">⚙️</button>
+                <button onclick="showHelp()" title="도움말">❓</button>
             </div>
 
             <div id="map"></div>
@@ -308,12 +412,26 @@
     <script>
         // 전역 변수
         let map;
+        let currentLocationMarker;
+        let watchId = null;
+        let isTracking = false;
+        let isPaused = false;
+        let currentRoute = null;
         let routes = [];
-        let currentTime = new Date('2024-01-01T12:00:00');
+        let trackingStartTime = null;
+        let totalDistance = 0;
+        let lastPosition = null;
+        let currentTime = new Date();
         let simulationRunning = false;
         let speed = 1;
         let interval;
-        let clickPoints = [];
+
+        // GPS 옵션
+        const gpsOptions = {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 30000
+        };
 
         // 지도 스타일 설정
         let currentMapStyle = 0;
@@ -321,11 +439,6 @@
             {
                 name: 'Dark Theme',
                 url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                attribution: '© OpenStreetMap contributors © CartoDB'
-            },
-            {
-                name: 'Light Theme', 
-                url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
                 attribution: '© OpenStreetMap contributors © CartoDB'
             },
             {
@@ -348,27 +461,23 @@
                 // 지도 생성 (서울시청 중심)
                 map = L.map('map').setView([37.5665, 126.9780], 15);
                 
-                // 기본 지도 타일 추가 (어두운 테마)
+                // 기본 지도 타일 추가
                 L.tileLayer(mapStyles[0].url, {
                     attribution: mapStyles[0].attribution,
                     maxZoom: 19
                 }).addTo(map);
 
-                // 지도 클릭 이벤트
-                map.on('click', function(e) {
-                    handleMapClick(e.latlng);
-                });
-
                 // 지도 로딩 완료
                 map.whenReady(function() {
-                    document.getElementById('loading').style.display = 'none';
                     console.log('지도 로딩 완료');
                     
-                    // 시작 시 데모 경로 추가
-                    setTimeout(() => {
-                        addTestRoute();
-                        console.log('데모 경로 추가 완료');
-                    }, 500);
+                    // 위치 권한 요청
+                    requestLocation();
+                    
+                    // 저장된 경로 불러오기
+                    loadSavedRoutes();
+                    
+                    document.getElementById('loading').style.display = 'none';
                 });
 
             } catch (error) {
@@ -377,76 +486,257 @@
             }
         }
 
-        // 지도 클릭 처리
-        function handleMapClick(latlng) {
-            clickPoints.push(latlng);
-            
-            // 클릭 지점에 임시 마커 표시
-            L.circleMarker(latlng, {
-                color: '#ff6b6b',
-                fillColor: '#ff6b6b',
-                fillOpacity: 0.8,
-                radius: 4,
-                weight: 2
-            }).addTo(map);
-
-            if (clickPoints.length === 2) {
-                // 두 점이 모이면 경로 생성
-                createRoute(clickPoints[0], clickPoints[1]);
-                clickPoints = [];
-                
-                // 임시 마커들 제거
-                map.eachLayer(function(layer) {
-                    if (layer instanceof L.CircleMarker) {
-                        map.removeLayer(layer);
-                    }
-                });
+        // 위치 권한 요청
+        function requestLocation() {
+            if (!navigator.geolocation) {
+                alert('이 브라우저는 GPS를 지원하지 않습니다.');
+                return;
             }
+
+            document.getElementById('permissionBanner').style.display = 'none';
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    console.log('위치 권한 허용됨');
+                    const { latitude, longitude } = position.coords;
+                    
+                    // 지도 중심을 현재 위치로 이동
+                    map.setView([latitude, longitude], 16);
+                    
+                    // 현재 위치 마커 생성
+                    if (currentLocationMarker) {
+                        map.removeLayer(currentLocationMarker);
+                    }
+                    
+                    currentLocationMarker = L.marker([latitude, longitude], {
+                        icon: L.divIcon({
+                            className: 'current-location-marker',
+                            html: '<div class="current-location"></div>',
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9]
+                        })
+                    }).addTo(map);
+                    
+                    updateUI();
+                },
+                (error) => {
+                    console.error('위치 권한 거부:', error);
+                    document.getElementById('permissionBanner').style.display = 'block';
+                    
+                    let errorMsg = '위치 접근이 거부되었습니다.';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = '위치 정보를 가져올 수 없습니다.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = '위치 요청이 시간 초과되었습니다.';
+                            break;
+                    }
+                    
+                    document.getElementById('permissionBanner').innerHTML = 
+                        `📍 ${errorMsg}<br><button onclick="requestLocation()" style="margin-top: 5px; font-size: 10px;">다시 시도</button>`;
+                },
+                gpsOptions
+            );
         }
 
-        // 경로 생성
-        function createRoute(start, end) {
-            const route = {
+        // GPS 추적 시작
+        function startTracking() {
+            if (!navigator.geolocation) {
+                alert('GPS를 지원하지 않는 브라우저입니다.');
+                return;
+            }
+
+            if (isTracking) {
+                alert('이미 추적 중입니다.');
+                return;
+            }
+
+            isTracking = true;
+            isPaused = false;
+            trackingStartTime = new Date();
+            totalDistance = 0;
+            lastPosition = null;
+            
+            // 새 경로 시작
+            currentRoute = {
                 id: Date.now(),
-                coordinates: [start, end],
+                coordinates: [],
                 createdAt: new Date(currentTime),
+                totalDistance: 0,
                 polyline: null
             };
 
-            // 경로 라인 생성
-            route.polyline = L.polyline([start, end], {
-                color: '#FFFFFF',
-                weight: 4,
-                opacity: 1.0,
-                lineCap: 'round',
-                lineJoin: 'round'
-            }).addTo(map);
+            // GPS 감시 시작
+            watchId = navigator.geolocation.watchPosition(
+                (position) => {
+                    handleLocationUpdate(position);
+                },
+                (error) => {
+                    console.error('GPS 추적 에러:', error);
+                    stopTracking();
+                },
+                gpsOptions
+            );
 
-            routes.push(route);
-            updateStats();
-            console.log('새 경로 추가됨:', route.id);
+            updateTrackingStatus('tracking', '실시간 추적 중');
+            updateUI();
+            
+            console.log('GPS 추적 시작됨');
         }
 
-        // 5단계 기억 시스템 - 시간에 따른 상태 계산
+        // 위치 업데이트 처리
+        function handleLocationUpdate(position) {
+            if (!isTracking || isPaused) return;
+
+            const { latitude, longitude, accuracy, speed } = position.coords;
+            const currentLatLng = [latitude, longitude];
+            
+            // 정확도가 너무 낮으면 무시 (50m 이상 오차)
+            if (accuracy > 50) {
+                console.log('위치 정확도가 낮음:', accuracy);
+                return;
+            }
+
+            // 현재 위치 마커 업데이트
+            if (currentLocationMarker) {
+                currentLocationMarker.setLatLng(currentLatLng);
+            }
+
+            // 첫 번째 위치이거나 충분히 이동했을 때만 기록
+            if (lastPosition) {
+                const distance = calculateDistance(lastPosition, currentLatLng);
+                
+                // 5m 이상 이동했을 때만 기록 (노이즈 제거)
+                if (distance < 5) {
+                    return;
+                }
+                
+                totalDistance += distance;
+                currentRoute.totalDistance = totalDistance;
+            }
+
+            // 경로에 점 추가
+            currentRoute.coordinates.push({
+                lat: latitude,
+                lng: longitude,
+                timestamp: new Date(currentTime),
+                accuracy: accuracy,
+                speed: speed
+            });
+
+            // 폴리라인 업데이트
+            if (currentRoute.polyline) {
+                const latlngs = currentRoute.polyline.getLatLngs();
+                latlngs.push(currentLatLng);
+                currentRoute.polyline.setLatLngs(latlngs);
+            } else {
+                // 첫 번째 폴리라인 생성
+                if (currentRoute.coordinates.length >= 2) {
+                    const coordinates = currentRoute.coordinates.map(c => [c.lat, c.lng]);
+                    currentRoute.polyline = L.polyline(coordinates, {
+                        color: '#FFFFFF',
+                        weight: 4,
+                        opacity: 1.0,
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }).addTo(map);
+                }
+            }
+
+            lastPosition = currentLatLng;
+            
+            // 통계 업데이트
+            updateStats();
+            
+            console.log(`위치 업데이트: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}, 거리: ${totalDistance.toFixed(0)}m`);
+        }
+
+        // 추적 일시정지
+        function pauseTracking() {
+            if (!isTracking) return;
+            
+            isPaused = !isPaused;
+            
+            if (isPaused) {
+                updateTrackingStatus('paused', '추적 일시정지');
+            } else {
+                updateTrackingStatus('tracking', '실시간 추적 중');
+            }
+            
+            updateUI();
+        }
+
+        // 추적 완전 정지
+        function stopTracking() {
+            if (!isTracking) return;
+
+            isTracking = false;
+            isPaused = false;
+            
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            // 현재 경로 저장
+            if (currentRoute && currentRoute.coordinates.length > 1) {
+                routes.push(currentRoute);
+                saveRoutesToStorage();
+                console.log('경로 저장됨:', currentRoute.coordinates.length, '점');
+            }
+
+            currentRoute = null;
+            updateTrackingStatus('stopped', '추적 중지됨');
+            updateUI();
+            
+            console.log('GPS 추적 완전 정지됨');
+        }
+
+        // 내 위치로 지도 중심 이동
+        function centerOnLocation() {
+            if (currentLocationMarker) {
+                const pos = currentLocationMarker.getLatLng();
+                map.setView([pos.lat, pos.lng], 16);
+            } else {
+                requestLocation();
+            }
+        }
+
+        // 거리 계산 (미터)
+        function calculateDistance(pos1, pos2) {
+            const R = 6371000; // 지구 반지름 (미터)
+            const lat1 = pos1[0] * Math.PI / 180;
+            const lat2 = pos2[0] * Math.PI / 180;
+            const deltaLat = (pos2[0] - pos1[0]) * Math.PI / 180;
+            const deltaLng = (pos2[1] - pos1[1]) * Math.PI / 180;
+
+            const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+                    Math.cos(lat1) * Math.cos(lat2) *
+                    Math.sin(deltaLng/2) * Math.sin(deltaLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c;
+        }
+
+        // 5단계 기억 시스템
         function getMemoryState(ageInMinutes) {
             if (ageInMinutes < 600) {
-                // 1단계: 흰색 (100% → 40%, 10시간)
                 const opacity = Math.max(0.4, 1.0 - (ageInMinutes / 600) * 0.6);
                 if (opacity <= 0.4) {
                     return { color: '#90EE90', opacity: 0.4, stage: '연두색' };
                 }
                 return { color: '#FFFFFF', opacity: opacity, stage: '흰색' };
             } else if (ageInMinutes < 1440) {
-                // 2단계: 초록색 (40%, 14시간)
                 return { color: '#32CD32', opacity: 0.4, stage: '초록색' };
             } else if (ageInMinutes < 10080) {
-                // 3단계: 주황색 (40%, 7일)
                 return { color: '#FFA500', opacity: 0.4, stage: '주황색' };
             } else if (ageInMinutes < 43200) {
-                // 4단계: 빨간색 (40%, 30일)
                 return { color: '#FF0000', opacity: 0.4, stage: '빨간색' };
             } else {
-                // 5단계: 갈색 (40%, 영구)
                 return { color: '#8B4513', opacity: 0.4, stage: '갈색' };
             }
         }
@@ -454,16 +744,71 @@
         // 모든 경로 업데이트
         function updateRoutes() {
             routes.forEach(route => {
+                if (!route.polyline) return;
+                
                 const ageInMinutes = (currentTime - route.createdAt) / (1000 * 60);
                 const state = getMemoryState(ageInMinutes);
                 
-                if (route.polyline) {
-                    route.polyline.setStyle({
-                        color: state.color,
-                        opacity: state.opacity
-                    });
-                }
+                route.polyline.setStyle({
+                    color: state.color,
+                    opacity: state.opacity
+                });
             });
+        }
+
+        // UI 업데이트
+        function updateUI() {
+            // 버튼 상태 업데이트
+            const startBtn = document.getElementById('startBtn');
+            const pauseBtn = document.getElementById('pauseBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            
+            if (isTracking) {
+                startBtn.className = 'full-width stopped';
+                startBtn.textContent = '🔴 추적 중';
+                pauseBtn.className = isPaused ? 'active' : '';
+                stopBtn.className = '';
+            } else {
+                startBtn.className = 'full-width';
+                startBtn.textContent = '📍 추적 시작';
+                pauseBtn.className = 'stopped';
+                stopBtn.className = 'stopped';
+            }
+        }
+
+        // 추적 상태 업데이트
+        function updateTrackingStatus(status, text) {
+            const statusEl = document.getElementById('trackingStatus');
+            const indicator = statusEl.querySelector('.status-indicator');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusEl.querySelector('span').textContent = text;
+        }
+
+        // 통계 업데이트
+        function updateStats() {
+            // 총 거리
+            const distanceText = totalDistance >= 1000 ? 
+                `${(totalDistance/1000).toFixed(1)}km` : 
+                `${totalDistance.toFixed(0)}m`;
+            document.getElementById('totalDistance').textContent = distanceText;
+            
+            // 현재 속도 (아직 구현 안됨)
+            document.getElementById('currentSpeed').textContent = '0';
+            
+            // 추적 시간
+            if (trackingStartTime && isTracking) {
+                const elapsed = new Date() - trackingStartTime;
+                const minutes = Math.floor(elapsed / 60000);
+                const seconds = Math.floor((elapsed % 60000) / 1000);
+                document.getElementById('trackingTime').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                document.getElementById('trackingTime').textContent = '00:00';
+            }
+            
+            // 저장된 경로 수
+            document.getElementById('routeCount').textContent = routes.length;
         }
 
         // 시뮬레이션 토글
@@ -472,23 +817,19 @@
                 simulationRunning = false;
                 clearInterval(interval);
                 document.getElementById('simBtn').textContent = '시뮬레이션 시작';
-                document.getElementById('status').textContent = '정지';
             } else {
                 simulationRunning = true;
                 interval = setInterval(() => {
                     currentTime = new Date(currentTime.getTime() + speed * 60000);
-                    updateTime();
                     updateRoutes();
                 }, 1000);
                 document.getElementById('simBtn').textContent = '시뮬레이션 정지';
-                document.getElementById('status').textContent = '실행중';
             }
         }
 
         // 속도 설정
         function setSpeed(newSpeed) {
             speed = newSpeed;
-            document.getElementById('speedText').textContent = newSpeed + 'x';
             
             // 활성 버튼 표시
             document.querySelectorAll('.speed').forEach(btn => {
@@ -497,23 +838,24 @@
             event.target.classList.add('active');
         }
 
-        // 테스트 경로 추가
-        function addTestRoute() {
-            if (!map) return;
+        // 모든 경로 삭제
+        function clearAllRoutes() {
+            if (routes.length === 0) {
+                alert('삭제할 경로가 없습니다.');
+                return;
+            }
             
-            const center = map.getCenter();
-            const offset = 0.003; // 약 300m 범위
-            
-            const start = L.latLng(
-                center.lat + (Math.random() - 0.5) * offset,
-                center.lng + (Math.random() - 0.5) * offset
-            );
-            const end = L.latLng(
-                center.lat + (Math.random() - 0.5) * offset,
-                center.lng + (Math.random() - 0.5) * offset
-            );
-            
-            createRoute(start, end);
+            if (confirm(`저장된 ${routes.length}개의 경로를 모두 삭제하시겠습니까?`)) {
+                routes.forEach(route => {
+                    if (route.polyline) {
+                        map.removeLayer(route.polyline);
+                    }
+                });
+                routes = [];
+                localStorage.removeItem('daedongyeojido_routes');
+                updateStats();
+                console.log('모든 경로 삭제됨');
+            }
         }
 
         // 지도 스타일 변경
@@ -537,144 +879,160 @@
             console.log(`지도 스타일 변경: ${style.name}`);
         }
 
-        // 모든 경로 삭제
-        function clearAll() {
-            if (confirm('모든 경로를 삭제하시겠습니까?')) {
-                routes.forEach(route => {
-                    if (route.polyline) {
-                        map.removeLayer(route.polyline);
-                    }
-                });
-                routes = [];
-                clickPoints = [];
+        // 경로 저장 (localStorage)
+        function saveRoutesToStorage() {
+            try {
+                const routeData = routes.map(route => ({
+                    id: route.id,
+                    coordinates: route.coordinates,
+                    createdAt: route.createdAt.toISOString(),
+                    totalDistance: route.totalDistance
+                }));
                 
-                // 임시 마커들도 제거
-                map.eachLayer(function(layer) {
-                    if (layer instanceof L.CircleMarker) {
-                        map.removeLayer(layer);
-                    }
-                });
-                
-                updateStats();
-                console.log('모든 경로 삭제됨');
+                localStorage.setItem('daedongyeojido_routes', JSON.stringify(routeData));
+                console.log('경로 데이터 저장됨:', routeData.length, '개');
+            } catch (error) {
+                console.error('경로 저장 실패:', error);
             }
         }
 
-        // 현재 위치로 이동
-        function getCurrentLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (position) => {
-                        const latlng = [position.coords.latitude, position.coords.longitude];
-                        map.setView(latlng, 16);
+        // 저장된 경로 불러오기
+        function loadSavedRoutes() {
+            try {
+                const savedData = localStorage.getItem('daedongyeojido_routes');
+                if (!savedData) return;
+                
+                const routeData = JSON.parse(savedData);
+                
+                routeData.forEach(data => {
+                    const route = {
+                        id: data.id,
+                        coordinates: data.coordinates,
+                        createdAt: new Date(data.createdAt),
+                        totalDistance: data.totalDistance,
+                        polyline: null
+                    };
+                    
+                    // 폴리라인 생성
+                    if (route.coordinates.length >= 2) {
+                        const latlngs = route.coordinates.map(c => [c.lat, c.lng]);
+                        const ageInMinutes = (currentTime - route.createdAt) / (1000 * 60);
+                        const state = getMemoryState(ageInMinutes);
                         
-                        // 현재 위치 마커 표시 (3초 후 사라짐)
-                        const locationMarker = L.marker(latlng, {
-                            icon: L.divIcon({
-                                className: 'current-location',
-                                html: '<div style="background: #4ecdc4; width: 12px; height: 12px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(78,205,196,0.6);"></div>',
-                                iconSize: [18, 18],
-                                iconAnchor: [9, 9]
-                            })
+                        route.polyline = L.polyline(latlngs, {
+                            color: state.color,
+                            weight: 4,
+                            opacity: state.opacity,
+                            lineCap: 'round',
+                            lineJoin: 'round'
                         }).addTo(map);
-                        
-                        setTimeout(() => {
-                            map.removeLayer(locationMarker);
-                        }, 3000);
-                        
-                        console.log('현재 위치로 이동 완료');
-                    },
-                    (error) => {
-                        console.error('위치 가져오기 실패:', error);
-                        alert('현재 위치를 가져올 수 없습니다.\n위치 서비스를 허용해주세요.');
-                    },
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 60000
                     }
-                );
-            } else {
-                alert('이 브라우저는 위치 서비스를 지원하지 않습니다.');
+                    
+                    routes.push(route);
+                });
+                
+                updateStats();
+                console.log('저장된 경로 불러옴:', routes.length, '개');
+            } catch (error) {
+                console.error('경로 불러오기 실패:', error);
             }
+        }
+
+        // 데이터 내보내기
+        function exportData() {
+            if (routes.length === 0) {
+                alert('내보낼 경로 데이터가 없습니다.');
+                return;
+            }
+            
+            const exportData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                routes: routes.map(route => ({
+                    id: route.id,
+                    coordinates: route.coordinates,
+                    createdAt: route.createdAt.toISOString(),
+                    totalDistance: route.totalDistance
+                }))
+            };
+            
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `나의대동여지도_${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            URL.revokeObjectURL(url);
+            console.log('데이터 내보내기 완료');
+        }
+
+        // 설정 보기
+        function showSettings() {
+            alert(`⚙️ GPS 추적 설정
+
+🎯 정확도: 고정밀 모드 (배터리 소모 높음)
+📏 최소 이동 거리: 5m (노이즈 제거)
+⏱️ 업데이트 간격: 실시간
+💾 데이터 저장: 브라우저 로컬 스토리지
+
+더 세부적인 설정은 추후 업데이트에서 제공됩니다.`);
         }
 
         // 도움말
         function showHelp() {
-            alert(`🗺️ 나의 대동여지도 사용법
+            alert(`🗺️ 나의 대동여지도 - GPS 추적 사용법
 
-📍 경로 그리기:
-• 지도를 두 번 클릭하여 경로 생성
-• 첫 번째 클릭: 시작점 (빨간 점)
-• 두 번째 클릭: 끝점 (흰색 선 완성)
+📍 기본 사용법:
+1. "📍 추적 시작" 버튼으로 GPS 추적 시작
+2. 실제로 걸으면 경로가 자동으로 기록됩니다
+3. "⏸️ 일시정지"로 임시 중지 (화장실, 휴식 등)
+4. "⏹️ 완전정지"로 추적 종료 및 경로 저장
 
-⏱️ 5단계 기억 시스템:
-• 1단계: 흰색 (10시간 동안 서서히 흐려짐)
+🎨 5단계 기억 시스템:
+• 1단계: 흰색 (최근 10시간, 점점 흐려짐)
 • 2단계: 초록색 (14시간)
 • 3단계: 주황색 (7일)
-• 4단계: 빨간색 (30일)  
+• 4단계: 빨간색 (30일)
 • 5단계: 갈색 (영구)
 
-🚀 시뮬레이션:
-• 시간 가속으로 빠른 변화 확인
+⚡ 시뮬레이션:
+• 시간 가속으로 기억 변화 과정 확인
 • 3600x로 30일을 30초에 시뮬레이션
 
-🎨 지도 스타일:
-• 4가지 테마: Dark, Light, Standard, Satellite
+📱 주의사항:
+• 위치 권한 필수
+• 배터리 소모가 클 수 있음
+• 실내에서는 GPS 정확도 낮음
+• 데이터는 브라우저에만 저장됨
 
-⌨️ 키보드 단축키:
-• 스페이스바: 시뮬레이션 시작/정지
-• R: 테스트 경로 추가
-• C: 모든 경로 삭제
+🚀 고급 기능:
+• 📤 내보내기: JSON 파일로 데이터 백업
+• 🎯 내 위치로: 현재 위치로 지도 이동
+• 🎨 지도 변경: 3가지 지도 스타일
 
-나만의 기억 지도를 만들어보세요!`);
+실제로 걸으면서 나만의 기억 지도를 만들어보세요!`);
         }
 
-        // UI 업데이트
-        function updateTime() {
-            document.getElementById('timeDisplay').textContent = 
-                currentTime.toLocaleString('ko-KR');
-        }
-
-        function updateStats() {
-            document.getElementById('routeCount').textContent = routes.length;
-        }
-
-        // 키보드 단축키
-        document.addEventListener('keydown', (e) => {
-            switch(e.key) {
-                case ' ':
-                    e.preventDefault();
-                    toggleSimulation();
-                    break;
-                case 'r':
-                case 'R':
-                    addTestRoute();
-                    break;
-                case 'c':
-                case 'C':
-                    clearAll();
-                    break;
-                case 'm':
-                case 'M':
-                    changeMapStyle();
-                    break;
+        // 실시간 통계 업데이트 (1초마다)
+        setInterval(() => {
+            if (isTracking && !isPaused) {
+                updateStats();
             }
-        });
+        }, 1000);
 
-        // 초기화 - 더 안전한 로딩 방식
+        // 초기화
         document.addEventListener('DOMContentLoaded', () => {
-            updateTime();
-            updateStats();
-            
-            // Leaflet 라이브러리 로딩 대기 (최대 5초)
+            // Leaflet 라이브러리 로딩 대기
             let attempts = 0;
             const maxAttempts = 10;
             
             function checkLeaflet() {
                 attempts++;
                 if (typeof L !== 'undefined') {
-                    console.log('Leaflet 로딩 완료, 지도 초기화 시작');
+                    console.log('Leaflet 로딩 완료, GPS 추적 시스템 초기화');
                     initMap();
                 } else if (attempts < maxAttempts) {
                     console.log(`Leaflet 로딩 대기 중... (${attempts}/${maxAttempts})`);
@@ -694,16 +1052,31 @@
             checkLeaflet();
         });
 
-        // 에러 처리
-        window.addEventListener('error', (e) => {
-            console.error('애플리케이션 에러:', e.error);
-        });
-
-        // 페이지 언로드 시 정리
+        // 페이지 종료 시 추적 정지
         window.addEventListener('beforeunload', () => {
+            if (isTracking) {
+                stopTracking();
+            }
             if (interval) {
                 clearInterval(interval);
             }
+        });
+
+        // 앱이 백그라운드로 갈 때 처리
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('앱이 백그라운드로 이동');
+            } else {
+                console.log('앱이 포그라운드로 복귀');
+                if (isTracking) {
+                    updateStats();
+                }
+            }
+        });
+
+        // 에러 처리
+        window.addEventListener('error', (e) => {
+            console.error('애플리케이션 에러:', e.error);
         });
     </script>
 </body>
