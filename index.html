@@ -584,6 +584,7 @@
         let simulationRunning = false;
         let speed = 1;
         let interval;
+        let stayAreas = []; // 체류 구역 저장
 
         // GPS 옵션
         const gpsOptions = {
@@ -857,6 +858,12 @@
 
                 // 최소 2개 이상의 좌표가 있으면 저장
                 if (currentRoute.coordinates.length >= 2) {
+                    // 체류 구역 분석
+                    const stayAreas = analyzeStayAreas(currentRoute);
+                    if (stayAreas.length > 0) {
+                        visualizeStayAreas(stayAreas);
+                    }
+                    
                     // routes 배열에 추가
                     routes.push(currentRoute);
                     
@@ -867,7 +874,8 @@
                         routeId: currentRoute.id,
                         totalRoutes: routes.length,
                         coordinates: currentRoute.coordinates.length,
-                        distance: currentRoute.totalDistance.toFixed(0) + 'm'
+                        distance: currentRoute.totalDistance.toFixed(0) + 'm',
+                        stayAreas: stayAreas.length
                     });
                 } else {
                     console.log('❌ 경로가 너무 짧아 저장하지 않음 (좌표 수:', currentRoute.coordinates.length, ')');
@@ -962,7 +970,7 @@
             return R * c;
         }
 
-        // 5단계 기억 시스템
+        // 5단계 기억 시스템 + 체류 구역
         function getMemoryState(ageInMinutes) {
             if (ageInMinutes < 600) {
                 const opacity = Math.max(0.4, 1.0 - (ageInMinutes / 600) * 0.6);
@@ -979,6 +987,116 @@
             } else {
                 return { color: '#8B4513', opacity: 0.4, stage: '갈색' };
             }
+        }
+
+        // 체류 구역 분석
+        function analyzeStayAreas(route) {
+            if (!route || !route.coordinates || route.coordinates.length < 2) return [];
+            
+            const stayThreshold = 50; // 50m 반경
+            const timeThreshold = 60; // 60분
+            const areas = [];
+            
+            console.log('체류 구역 분석 시작:', route.coordinates.length, '개 좌표');
+            
+            for (let i = 0; i < route.coordinates.length; i++) {
+                const currentPoint = route.coordinates[i];
+                const stayPoints = [currentPoint];
+                
+                // 현재 지점 주변 50m 내의 모든 점들 찾기
+                for (let j = i + 1; j < route.coordinates.length; j++) {
+                    const distance = calculateDistance(
+                        [currentPoint.lat, currentPoint.lng],
+                        [route.coordinates[j].lat, route.coordinates[j].lng]
+                    );
+                    
+                    if (distance <= stayThreshold) {
+                        stayPoints.push(route.coordinates[j]);
+                    } else {
+                        break; // 50m를 벗어나면 체류 구간 종료
+                    }
+                }
+                
+                // 체류 시간 계산
+                if (stayPoints.length >= 2) {
+                    const startTime = new Date(stayPoints[0].timestamp);
+                    const endTime = new Date(stayPoints[stayPoints.length - 1].timestamp);
+                    const stayDuration = (endTime - startTime) / (1000 * 60); // 분 단위
+                    
+                    if (stayDuration >= timeThreshold) {
+                        // 중심점 계산
+                        const centerLat = stayPoints.reduce((sum, p) => sum + p.lat, 0) / stayPoints.length;
+                        const centerLng = stayPoints.reduce((sum, p) => sum + p.lng, 0) / stayPoints.length;
+                        
+                        const stayArea = {
+                            center: [centerLat, centerLng],
+                            radius: stayThreshold,
+                            startTime: startTime,
+                            endTime: endTime,
+                            duration: stayDuration,
+                            points: stayPoints,
+                            circle: null
+                        };
+                        
+                        areas.push(stayArea);
+                        console.log('체류 구역 발견:', {
+                            center: [centerLat.toFixed(6), centerLng.toFixed(6)],
+                            duration: Math.round(stayDuration) + '분',
+                            points: stayPoints.length
+                        });
+                        
+                        // 체류 구간을 건너뛰기
+                        i = i + stayPoints.length - 1;
+                    }
+                }
+            }
+            
+            console.log('체류 구역 분석 완료:', areas.length, '개 구역 발견');
+            return areas;
+        }
+
+        // 체류 구역 시각화
+        function visualizeStayAreas(areas) {
+            // 기존 체류 구역 제거
+            stayAreas.forEach(area => {
+                if (area.circle) {
+                    map.removeLayer(area.circle);
+                }
+            });
+            
+            stayAreas = [];
+            
+            areas.forEach(area => {
+                // 황금색 원형 표시
+                const circle = L.circle(area.center, {
+                    color: '#FFD700',
+                    fillColor: '#FFD700',
+                    fillOpacity: 0.4,
+                    radius: area.radius,
+                    weight: 2
+                }).addTo(map);
+                
+                // 팝업 정보 추가
+                const durationText = area.duration >= 60 ? 
+                    `${Math.floor(area.duration / 60)}시간 ${Math.round(area.duration % 60)}분` : 
+                    `${Math.round(area.duration)}분`;
+                
+                circle.bindPopup(`
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; margin-bottom: 5px;">🏠</div>
+                        <div style="font-weight: bold; color: #FFD700;">체류 구역</div>
+                        <div style="font-size: 12px; margin-top: 5px;">
+                            머문 시간: ${durationText}<br>
+                            기록된 점: ${area.points.length}개
+                        </div>
+                    </div>
+                `);
+                
+                area.circle = circle;
+                stayAreas.push(area);
+            });
+            
+            console.log('체류 구역 시각화 완료:', stayAreas.length, '개');
         }
 
         // 모든 경로 업데이트
