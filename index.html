@@ -1,4 +1,18 @@
-<!DOCTYPE html>
+.smart-gps-feedback {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            display: none;
+        }<!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
@@ -90,20 +104,44 @@
             animation: pulse 1s infinite;
         }
 
-        .smart-gps-feedback {
+        .tooltip {
             position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.9);
             color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            z-index: 1600;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.4;
+            max-width: 250px;
+            z-index: 2000;
             border: 1px solid rgba(255, 255, 255, 0.3);
             backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             display: none;
+            pointer-events: none;
+        }
+
+        .tooltip::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid rgba(0, 0, 0, 0.9);
+        }
+
+        .tooltip-title {
+            color: #4ecdc4;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .tooltip-description {
+            opacity: 0.9;
         }
 
         .stats-popup {
@@ -479,7 +517,7 @@
             </div>
 
             <div class="section">
-                <h3>🎨 5단계 기억 시스템</h3>
+                <h3>🎨 6단계 기억 시스템</h3>
                 <div class="legend">
                     <div class="legend-item">
                         <div class="legend-color" style="background: #FFFFFF; border: 1px solid #666;"></div>
@@ -505,6 +543,10 @@
                         <div class="legend-color" style="background: #8B4513;"></div>
                         <span>5단계: 갈색 (40%, 영구)</span>
                     </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFD700;"></div>
+                        <span>🏠 체류 구역: 황금색 (1시간+ 머문 곳)</span>
+                    </div>
                 </div>
             </div>
 
@@ -520,15 +562,52 @@
 
         <div class="main">
             <!-- 사이드바 토글 버튼 -->
-            <div class="toggle-sidebar" onclick="toggleSidebar()">☰</div>
+            <div class="toggle-sidebar" 
+                 onmousedown="startLongPress(this, 'sidebar')" 
+                 onmouseup="endLongPress()" 
+                 onmouseleave="endLongPress()"
+                 ontouchstart="startLongPress(this, 'sidebar')" 
+                 ontouchend="endLongPress()" 
+                 onclick="handleSidebarClick()">☰</div>
             
             <!-- 플로팅 컨트롤 버튼들 -->
             <div class="floating-controls">
-                <div class="control-button" id="floatingTrackBtn" onclick="smartGPSAction()" title="GPS 추적/내 위치">📍</div>
-                <div class="control-button" onclick="toggleStatsPopup()" title="통계 보기">📊</div>
-                <div class="control-button" onclick="toggleSimulationFromFloat()" id="floatingSimBtn" title="시뮬레이션">⏱️</div>
-                <div class="control-button" onclick="changeMapStyle()" title="지도 스타일">🎨</div>
+                <div class="control-button" id="floatingTrackBtn" 
+                     onmousedown="startLongPress(this, 'gps')" 
+                     onmouseup="endLongPress()" 
+                     onmouseleave="endLongPress()"
+                     ontouchstart="startLongPress(this, 'gps')" 
+                     ontouchend="endLongPress()" 
+                     onclick="handleButtonClick('gps')" 
+                     title="GPS 추적/내 위치">📍</div>
+                <div class="control-button" 
+                     onmousedown="startLongPress(this, 'stats')" 
+                     onmouseup="endLongPress()" 
+                     onmouseleave="endLongPress()"
+                     ontouchstart="startLongPress(this, 'stats')" 
+                     ontouchend="endLongPress()" 
+                     onclick="handleButtonClick('stats')" 
+                     title="통계 보기">📊</div>
+                <div class="control-button" id="floatingSimBtn" 
+                     onmousedown="startLongPress(this, 'simulation')" 
+                     onmouseup="endLongPress()" 
+                     onmouseleave="endLongPress()"
+                     ontouchstart="startLongPress(this, 'simulation')" 
+                     ontouchend="endLongPress()" 
+                     onclick="handleButtonClick('simulation')" 
+                     title="시뮬레이션">⏱️</div>
+                <div class="control-button" 
+                     onmousedown="startLongPress(this, 'style')" 
+                     onmouseup="endLongPress()" 
+                     onmouseleave="endLongPress()"
+                     ontouchstart="startLongPress(this, 'style')" 
+                     ontouchend="endLongPress()" 
+                     onclick="handleButtonClick('style')" 
+                     title="지도 스타일">🎨</div>
             </div>
+
+            <!-- 툴팁 -->
+            <div class="tooltip" id="tooltip"></div>
 
             <!-- 스마트 GPS 피드백 -->
             <div class="smart-gps-feedback" id="gpsfeedback">GPS 위치 찾는 중...</div>
@@ -1114,7 +1193,7 @@
             });
         }
 
-        // 플로팅 UI 관련 함수들
+        // 사이드바 토글 버튼에도 롱프레스 추가
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
             sidebar.classList.toggle('collapsed');
@@ -1126,6 +1205,19 @@
             
             console.log('사이드바 토글됨');
         }
+
+        // 사이드바 버튼 롱프레스 처리
+        function handleSidebarLongPress() {
+            showTooltip(document.querySelector('.toggle-sidebar'), 'sidebar');
+        }
+
+        // 사이드바 버튼 설명 추가
+        buttonDescriptions.sidebar = {
+            title: '☰ 사이드바 토글',
+            description: '• 상세 설정 패널 열기/닫기\n• GPS 추적 제어, 통계, 시뮬레이션 설정\n• 6단계 기억 시스템 범례 확인'
+        };
+
+        // 스마트 GPS 액션 (추적 + 내 위치 통합)
 
         function toggleStatsPopup() {
             const popup = document.getElementById('statsPopup');
@@ -1182,7 +1274,136 @@
             });
         }
 
-        // 스마트 GPS 액션 (추적 + 내 위치 통합)
+        // 롱프레스 및 툴팁 관련 변수
+        let longPressTimer = null;
+        let isLongPressed = false;
+
+        // 버튼 설명 데이터
+        const buttonDescriptions = {
+            gps: {
+                title: '📍 스마트 GPS 버튼',
+                description: '• 추적 안 할 때: 위치 찾기 → 지도 이동 → 추적 시작\n• 추적 중일 때: GPS 추적 완전 정지\n• 1시간+ 머문 곳은 황금색 체류 구역으로 표시'
+            },
+            stats: {
+                title: '📊 실시간 통계',
+                description: '• 총 거리, 추적 시간, 저장된 경로 수\n• 현재 추적 상태 확인\n• 5초간 표시 후 자동 숨김'
+            },
+            simulation: {
+                title: '⏱️ 시간 시뮬레이션',
+                description: '• 시간을 빠르게 진행하여 기억 변화 확인\n• 흰색 → 연두 → 초록 → 주황 → 빨강 → 갈색\n• 3600x 속도로 30일을 30초에 시뮬레이션'
+            },
+            style: {
+                title: '🎨 지도 스타일',
+                description: '• Dark Theme (기본)\n• Standard (일반)\n• Satellite (위성)\n• 클릭할 때마다 순환 변경'
+            }
+        };
+
+        // 롱프레스 시작
+        function startLongPress(element, buttonType) {
+            // 기존 타이머 제거
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+            }
+            
+            isLongPressed = false;
+            
+            // 0.5초 후 툴팁 표시
+            longPressTimer = setTimeout(() => {
+                isLongPressed = true;
+                showTooltip(element, buttonType);
+                
+                // 진동 피드백 (모바일)
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+                
+                console.log('롱프레스 툴팁 표시:', buttonType);
+            }, 500);
+        }
+
+        // 롱프레스 종료
+        function endLongPress() {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            
+            // 툴팁 숨김
+            setTimeout(() => {
+                hideTooltip();
+            }, 100);
+        }
+
+        // 버튼 클릭 처리
+        function handleButtonClick(buttonType) {
+            // 롱프레스였다면 클릭 무시
+            if (isLongPressed) {
+                isLongPressed = false;
+                return;
+            }
+            
+            // 일반 클릭 처리
+            switch(buttonType) {
+                case 'gps':
+                    smartGPSAction();
+                    break;
+                case 'stats':
+                    toggleStatsPopup();
+                    break;
+                case 'simulation':
+                    toggleSimulationFromFloat();
+                    break;
+                case 'style':
+                    changeMapStyle();
+                    break;
+            }
+        }
+
+        // 툴팁 표시
+        function showTooltip(element, buttonType) {
+            const tooltip = document.getElementById('tooltip');
+            const description = buttonDescriptions[buttonType];
+            
+            if (!description) return;
+            
+            // 툴팁 내용 설정
+            tooltip.innerHTML = `
+                <div class="tooltip-title">${description.title}</div>
+                <div class="tooltip-description">${description.description.replace(/\n/g, '<br>')}</div>
+            `;
+            
+            // 버튼 위치 계산
+            const rect = element.getBoundingClientRect();
+            const tooltipRect = tooltip.getBoundingClientRect();
+            
+            // 툴팁 위치 설정 (버튼 오른쪽)
+            let left = rect.right + 10;
+            let top = rect.top + (rect.height / 2) - (tooltipRect.height / 2);
+            
+            // 화면 경계 체크
+            const maxLeft = window.innerWidth - 260; // 툴팁 최대 너비
+            if (left > maxLeft) {
+                left = rect.left - 260; // 버튼 왼쪽으로 이동
+            }
+            
+            const maxTop = window.innerHeight - tooltipRect.height - 10;
+            if (top > maxTop) {
+                top = maxTop;
+            }
+            if (top < 10) {
+                top = 10;
+            }
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+            tooltip.style.display = 'block';
+        }
+
+        // 툴팁 숨김
+        function hideTooltip() {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.display = 'none';
+        }
         function smartGPSAction() {
             const floatingBtn = document.getElementById('floatingTrackBtn');
             const feedback = document.getElementById('gpsfeedback');
@@ -1432,7 +1653,9 @@
             }
             
             const routeCount = routes.length;
-            if (confirm(`저장된 ${routeCount}개의 경로를 모두 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
+            const stayAreaCount = stayAreas.length;
+            
+            if (confirm(`저장된 ${routeCount}개의 경로와 ${stayAreaCount}개의 체류 구역을 모두 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
                 // 지도에서 모든 경로 제거
                 routes.forEach(route => {
                     if (route.polyline) {
@@ -1440,8 +1663,16 @@
                     }
                 });
                 
+                // 지도에서 모든 체류 구역 제거
+                stayAreas.forEach(area => {
+                    if (area.circle) {
+                        map.removeLayer(area.circle);
+                    }
+                });
+                
                 // 배열 초기화
                 routes = [];
+                stayAreas = [];
                 
                 // localStorage에서 제거
                 localStorage.removeItem('daedongyeojido_routes');
@@ -1449,8 +1680,8 @@
                 // UI 업데이트
                 updateStats();
                 
-                console.log('✅ 모든 경로 삭제 완료:', routeCount, '개 삭제됨');
-                alert(`${routeCount}개의 경로가 삭제되었습니다.`);
+                console.log('✅ 모든 경로와 체류 구역 삭제 완료:', routeCount, '개 경로,', stayAreaCount, '개 체류 구역 삭제됨');
+                alert(`${routeCount}개의 경로와 ${stayAreaCount}개의 체류 구역이 삭제되었습니다.`);
             }
         }
 
@@ -1563,6 +1794,9 @@
                 const routeData = JSON.parse(savedData);
                 console.log('저장된 경로 데이터 발견:', routeData.length, '개');
                 
+                // 모든 체류 구역 수집
+                let allStayAreas = [];
+                
                 routeData.forEach((data, index) => {
                     const route = {
                         id: data.id,
@@ -1592,10 +1826,20 @@
                             color: state.color,
                             age: Math.floor(ageInMinutes) + '분 전'
                         });
+                        
+                        // 각 경로의 체류 구역 분석
+                        const routeStayAreas = analyzeStayAreas(route);
+                        allStayAreas = allStayAreas.concat(routeStayAreas);
                     }
                     
                     routes.push(route);
                 });
+                
+                // 모든 체류 구역 시각화
+                if (allStayAreas.length > 0) {
+                    visualizeStayAreas(allStayAreas);
+                    console.log('총 체류 구역:', allStayAreas.length, '개 복원됨');
+                }
                 
                 updateStats();
                 console.log('✅ 저장된 경로 불러오기 완료:', routes.length, '개');
