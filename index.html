@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>나의 대동여지도 - GPS 경로 추적</title>
     <meta name="description" content="GPS로 실제 걸은 길을 추적하고 시간에 따라 변화하는 기억 지도">
-    <meta name="keywords" content="GPS, 경로추적, 지도, 기억, 대동여지도">
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
@@ -155,46 +154,6 @@
             display: none;
         }
 
-        .tooltip {
-            position: absolute;
-            background: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 13px;
-            line-height: 1.4;
-            max-width: 250px;
-            z-index: 2000;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            display: none;
-            pointer-events: none;
-        }
-
-        .tooltip::before {
-            content: '';
-            position: absolute;
-            top: -6px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 6px solid transparent;
-            border-right: 6px solid transparent;
-            border-bottom: 6px solid rgba(0, 0, 0, 0.9);
-        }
-
-        .tooltip-title {
-            color: #4ecdc4;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .tooltip-description {
-            opacity: 0.9;
-        }
-
         .main {
             flex: 1;
             position: relative;
@@ -253,6 +212,10 @@
 
         button.full-width {
             width: calc(100% - 6px);
+        }
+
+        button.danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
         }
 
         .tracking-status {
@@ -372,6 +335,16 @@
             line-height: 1.3;
         }
 
+        .save-status {
+            background: rgba(46, 204, 113, 0.1);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 10px;
+            border-left: 3px solid #2ecc71;
+            text-align: center;
+        }
+
         .footer {
             margin-top: 20px;
             text-align: center;
@@ -390,15 +363,6 @@
             font-size: 11px;
             border: 1px solid rgba(241, 196, 15, 0.3);
             text-align: center;
-        }
-
-        .current-location {
-            background: #4ecdc4;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 3px solid white;
-            box-shadow: 0 0 15px rgba(78,205,196,0.8);
         }
 
         /* 반응형 디자인 */
@@ -473,6 +437,11 @@
                 실제로 걸은 경로가 기록됩니다.
             </div>
 
+            <div class="save-status" id="saveStatus">
+                💾 자동 저장 기능 활성화<br>
+                <small>30초마다 자동 저장됩니다</small>
+            </div>
+
             <div id="permissionBanner" class="permission-banner" style="display: none;">
                 📍 위치 권한이 필요합니다!<br>
                 <button onclick="requestLocation()" style="margin-top: 5px; font-size: 10px;">권한 요청</button>
@@ -526,6 +495,13 @@
             </div>
 
             <div class="section">
+                <h3>💾 데이터 관리</h3>
+                <button onclick="saveDataManually()" class="full-width">💾 수동 저장</button>
+                <button onclick="clearStoredData()" class="danger">🗑️ 저장 데이터 삭제</button>
+                <button onclick="exportData()">📤 내보내기</button>
+            </div>
+
+            <div class="section">
                 <h3>🎨 6단계 기억 시스템</h3>
                 <div class="legend">
                     <div class="legend-item">
@@ -560,66 +536,29 @@
             </div>
 
             <div class="footer">
-                <p><strong>나의 대동여지도</strong></p>
-                <p>실제 GPS 경로 추적 시스템</p>
+                <p><strong>나의 대동여지도 v2.0</strong></p>
+                <p>자동 저장 GPS 경로 추적 시스템</p>
                 <p style="margin-top: 5px;">
                     <a href="#" onclick="showHelp()" style="color: #4ecdc4; text-decoration: none;">❓ 사용법</a> |
-                    <a href="#" onclick="exportData()" style="color: #4ecdc4; text-decoration: none;">📤 내보내기</a>
+                    <a href="#" onclick="showDataInfo()" style="color: #4ecdc4; text-decoration: none;">💾 저장 정보</a>
                 </p>
             </div>
         </div>
 
         <div class="main">
             <!-- 사이드바 토글 버튼 -->
-            <div class="toggle-sidebar" 
-                 onmousedown="startLongPress(this, 'sidebar')" 
-                 onmouseup="endLongPress()" 
-                 onmouseleave="endLongPress()"
-                 ontouchstart="startLongPress(this, 'sidebar')" 
-                 ontouchend="endLongPress()" 
-                 onclick="handleSidebarClick()">☰</div>
+            <div class="toggle-sidebar" onclick="toggleSidebar()">☰</div>
             
             <!-- 플로팅 컨트롤 버튼들 -->
             <div class="floating-controls">
-                <div class="control-button" id="floatingTrackBtn" 
-                     onmousedown="startLongPress(this, 'gps')" 
-                     onmouseup="endLongPress()" 
-                     onmouseleave="endLongPress()"
-                     ontouchstart="startLongPress(this, 'gps')" 
-                     ontouchend="endLongPress()" 
-                     onclick="handleButtonClick('gps')" 
-                     title="GPS 추적/내 위치">📍</div>
-                <div class="control-button" 
-                     onmousedown="startLongPress(this, 'stats')" 
-                     onmouseup="endLongPress()" 
-                     onmouseleave="endLongPress()"
-                     ontouchstart="startLongPress(this, 'stats')" 
-                     ontouchend="endLongPress()" 
-                     onclick="handleButtonClick('stats')" 
-                     title="통계 보기">📊</div>
-                <div class="control-button" id="floatingSimBtn" 
-                     onmousedown="startLongPress(this, 'simulation')" 
-                     onmouseup="endLongPress()" 
-                     onmouseleave="endLongPress()"
-                     ontouchstart="startLongPress(this, 'simulation')" 
-                     ontouchend="endLongPress()" 
-                     onclick="handleButtonClick('simulation')" 
-                     title="시뮬레이션">⏱️</div>
-                <div class="control-button" 
-                     onmousedown="startLongPress(this, 'style')" 
-                     onmouseup="endLongPress()" 
-                     onmouseleave="endLongPress()"
-                     ontouchstart="startLongPress(this, 'style')" 
-                     ontouchend="endLongPress()" 
-                     onclick="handleButtonClick('style')" 
-                     title="지도 스타일">🎨</div>
+                <div class="control-button" id="floatingTrackBtn" onclick="smartGPSAction()" title="GPS 추적/내 위치">📍</div>
+                <div class="control-button" onclick="toggleStatsPopup()" title="통계 보기">📊</div>
+                <div class="control-button" id="floatingSimBtn" onclick="toggleSimulation()" title="시뮬레이션">⏱️</div>
+                <div class="control-button" onclick="changeMapStyle()" title="지도 스타일">🎨</div>
             </div>
 
             <!-- 스마트 GPS 피드백 -->
             <div class="smart-gps-feedback" id="gpsfeedback">GPS 위치 찾는 중...</div>
-
-            <!-- 툴팁 -->
-            <div class="tooltip" id="tooltip"></div>
 
             <!-- 통계 팝업 -->
             <div class="stats-popup" id="statsPopup">
@@ -673,34 +612,7 @@
         let speed = 1;
         let interval;
         let stayAreas = [];
-
-        // 롱프레스 및 툴팁 관련 변수
-        let longPressTimer = null;
-        let isLongPressed = false;
-
-        // 버튼 설명 데이터
-        const buttonDescriptions = {
-            gps: {
-                title: '📍 스마트 GPS 버튼',
-                description: '• 추적 안 할 때: 위치 찾기 → 지도 이동 → 추적 시작\n• 추적 중일 때: GPS 추적 완전 정지\n• 1시간+ 머문 곳은 황금색 체류 구역으로 표시'
-            },
-            stats: {
-                title: '📊 실시간 통계',
-                description: '• 총 거리, 추적 시간, 저장된 경로 수\n• 현재 추적 상태 확인\n• 5초간 표시 후 자동 숨김'
-            },
-            simulation: {
-                title: '⏱️ 시간 시뮬레이션',
-                description: '• 시간을 빠르게 진행하여 기억 변화 확인\n• 흰색 → 연두 → 초록 → 주황 → 빨강 → 갈색\n• 3600x 속도로 30일을 30초에 시뮬레이션'
-            },
-            style: {
-                title: '🎨 지도 스타일',
-                description: '• Dark Theme (기본)\n• Standard (일반)\n• Satellite (위성)\n• 클릭할 때마다 순환 변경'
-            },
-            sidebar: {
-                title: '☰ 사이드바 토글',
-                description: '• 상세 설정 패널 열기/닫기\n• GPS 추적 제어, 통계, 시뮬레이션 설정\n• 6단계 기억 시스템 범례 확인'
-            }
-        };
+        let lastSaveTime = null;
 
         // GPS 옵션
         const gpsOptions = {
@@ -729,100 +641,92 @@
             }
         ];
 
-        // 롱프레스 관련 함수들
-        function startLongPress(element, buttonType) {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-            }
-            
-            isLongPressed = false;
-            
-            longPressTimer = setTimeout(() => {
-                isLongPressed = true;
-                showTooltip(element, buttonType);
+        // 데이터 자동 저장 함수들
+        function saveDataToStorage() {
+            try {
+                const data = {
+                    routes: routes.map(route => ({
+                        ...route,
+                        polyline: undefined
+                    })),
+                    stayAreas: stayAreas.map(area => ({
+                        ...area,
+                        marker: undefined
+                    })),
+                    totalDistance: totalDistance,
+                    lastSaved: new Date().toISOString(),
+                    version: '2.0'
+                };
                 
-                if (navigator.vibrate) {
-                    navigator.vibrate(50);
-                }
+                localStorage.setItem('daedongMap_data', JSON.stringify(data));
+                lastSaveTime = new Date();
+                console.log('데이터 자동 저장 완료');
                 
-                console.log('롱프레스 툴팁 표시:', buttonType);
-            }, 500);
-        }
-
-        function endLongPress() {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-            
-            setTimeout(() => {
-                hideTooltip();
-            }, 100);
-        }
-
-        function handleButtonClick(buttonType) {
-            if (isLongPressed) {
-                isLongPressed = false;
-                return;
-            }
-            
-            switch(buttonType) {
-                case 'gps':
-                    smartGPSAction();
-                    break;
-                case 'stats':
-                    toggleStatsPopup();
-                    break;
-                case 'simulation':
-                    toggleSimulationFromFloat();
-                    break;
-                case 'style':
-                    changeMapStyle();
-                    break;
-            }
-        }
-
-        function handleSidebarClick() {
-            if (isLongPressed) {
-                isLongPressed = false;
-                return;
-            }
-            toggleSidebar();
-        }
-
-        function showTooltip(element, buttonType) {
-            const tooltip = document.getElementById('tooltip');
-            const rect = element.getBoundingClientRect();
-            const data = buttonDescriptions[buttonType];
-            
-            if (!data) return;
-            
-            tooltip.innerHTML = `
-                <div class="tooltip-title">${data.title}</div>
-                <div class="tooltip-description">${data.description.replace(/\n/g, '<br>')}</div>
-            `;
-            
-            tooltip.style.left = (rect.left + rect.width / 2) + 'px';
-            tooltip.style.top = (rect.bottom + 10) + 'px';
-            tooltip.style.display = 'block';
-            
-            // 화면 경계 확인 및 조정
-            setTimeout(() => {
-                const tooltipRect = tooltip.getBoundingClientRect();
-                if (tooltipRect.right > window.innerWidth) {
-                    tooltip.style.left = (window.innerWidth - tooltipRect.width - 10) + 'px';
+                // 저장 상태 업데이트
+                const saveStatus = document.getElementById('saveStatus');
+                if (saveStatus) {
+                    saveStatus.innerHTML = `💾 마지막 저장: ${lastSaveTime.toLocaleTimeString()}<br><small>30초마다 자동 저장됩니다</small>`;
                 }
-                if (tooltipRect.left < 0) {
-                    tooltip.style.left = '10px';
-                }
-                if (tooltipRect.bottom > window.innerHeight) {
-                    tooltip.style.top = (rect.top - tooltipRect.height - 10) + 'px';
-                }
-            }, 10);
+            } catch (error) {
+                console.error('데이터 저장 실패:', error);
+                showGPSFeedback('저장 실패: 용량 부족일 수 있습니다');
+            }
         }
 
-        function hideTooltip() {
-            document.getElementById('tooltip').style.display = 'none';
+        function loadDataFromStorage() {
+            try {
+                const savedData = localStorage.getItem('daedongMap_data');
+                if (savedData) {
+                    const data = JSON.parse(savedData);
+                    
+                    // 저장된 경로 복원
+                    routes = data.routes || [];
+                    stayAreas = data.stayAreas || [];
+                    totalDistance = data.totalDistance || 0;
+                    
+                    // 지도에 경로 다시 그리기
+                    routes.forEach(route => {
+                        drawRoute(route);
+                    });
+                    
+                    // 체류 구역 다시 그리기
+                    stayAreas.forEach(area => {
+                        if (area.duration >= 3600000) { // 1시간 이상
+                            area.marker = L.circleMarker([area.lat, area.lng], {
+                                radius: 15,
+                                fillColor: '#FFD700',
+                                color: '#FFA500',
+                                weight: 2,
+                                opacity: 0.8,
+                                fillOpacity: 0.6
+                            }).addTo(map);
+                        }
+                    });
+                    
+                    updateStats();
+                    
+                    const savedTime = new Date(data.lastSaved).toLocaleString();
+                    showGPSFeedback(`저장된 데이터 복원 완료 (${savedTime})`);
+                    setTimeout(() => hideGPSFeedback(), 3000);
+                    
+                    console.log('저장된 데이터 복원:', data);
+                }
+            } catch (error) {
+                console.error('데이터 복원 실패:', error);
+            }
+        }
+
+        function saveDataManually() {
+            saveDataToStorage();
+            showGPSFeedback('데이터가 수동으로 저장되었습니다');
+            setTimeout(() => hideGPSFeedback(), 2000);
+        }
+
+        function clearStoredData() {
+            if (confirm('저장된 모든 데이터를 삭제하시겠습니까?\n(이 작업은 되돌릴 수 없습니다)')) {
+                localStorage.removeItem('daedongMap_data');
+                location.reload(); // 페이지 새로고침
+            }
         }
 
         // 지도 초기화
@@ -1101,13 +1005,16 @@
             if (currentRoute && currentRoute.points.length > 1) {
                 currentRoute.endTime = new Date();
                 routes.push(currentRoute);
+                
+                // 즉시 저장
+                saveDataToStorage();
             }
 
             currentRoute = null;
             lastPosition = null;
             
             updateUI();
-            showGPSFeedback('추적이 완전히 정지되었습니다');
+            showGPSFeedback('추적이 완전히 정지되었습니다 (자동 저장됨)');
             
             console.log('GPS 추적 완전 정지');
         }
@@ -1242,10 +1149,6 @@
             }
         }
 
-        function toggleSimulationFromFloat() {
-            toggleSimulation();
-        }
-
         // 시뮬레이션 시작
         function startSimulation() {
             interval = setInterval(() => {
@@ -1298,7 +1201,7 @@
 
         // 모든 경로 삭제
         function clearAllRoutes() {
-            if (confirm('모든 경로를 삭제하시겠습니까?')) {
+            if (confirm('모든 경로를 삭제하시겠습니까?\n(저장된 데이터도 함께 삭제됩니다)')) {
                 routes.forEach(route => {
                     if (route.polyline) {
                         map.removeLayer(route.polyline);
@@ -1315,8 +1218,11 @@
                 stayAreas = [];
                 totalDistance = 0;
                 
+                // 저장소에서도 삭제
+                localStorage.removeItem('daedongMap_data');
+                
                 updateStats();
-                showGPSFeedback('모든 경로가 삭제되었습니다');
+                showGPSFeedback('모든 경로가 삭제되었습니다 (저장소 정리됨)');
                 setTimeout(() => hideGPSFeedback(), 2000);
             }
         }
@@ -1406,21 +1312,31 @@
         function showHelp() {
             alert(`🗺️ 나의 대동여지도 사용법
 
-📍 GPS 추적:
-• 추적 시작 → 실제로 걸으면 경로가 기록됩니다
-• 1시간 이상 머문 곳은 황금색 체류 구역으로 표시
+✅ GPS 추적 시작하기:
+1. "📍 추적 시작" 버튼 클릭
+2. 위치 권한 허용
+3. 실제로 걸어다니면서 경로 기록
+4. "⏹️ 완전정지"로 추적 종료
 
 🎨 6단계 기억 시스템:
 • 흰색(10시간) → 초록(14시간) → 주황(7일) → 빨강(30일) → 갈색(영구)
 • 시간이 지날수록 기억이 흐려집니다
+• 1시간 이상 머문 곳은 황금색 체류 구역
 
 ⏱️ 시간 시뮬레이션:
-• 시간을 빠르게 진행하여 기억 변화를 확인
+• 시간을 빠르게 진행하여 기억 변화 확인
 • 3600x 속도로 30일을 30초에 시뮬레이션
 
-🎯 스마트 버튼:
-• 롱프레스: 상세 설명 보기
-• 클릭: 해당 기능 실행`);
+💾 자동 저장:
+• 30초마다 자동 저장
+• 페이지 새로고침해도 데이터 유지
+• 수동 저장/내보내기 가능
+
+📱 스마트 버튼:
+• 📍: GPS 추적 시작/정지
+• 📊: 실시간 통계 보기 
+• ⏱️: 시간 시뮬레이션
+• 🎨: 지도 스타일 변경`);
         }
 
         // 설정 표시
@@ -1432,9 +1348,33 @@
 총 저장된 경로: ${routes.length}개
 총 이동 거리: ${document.getElementById('totalDistance').textContent}
 
+💾 저장 상태:
+마지막 저장: ${lastSaveTime ? lastSaveTime.toLocaleString() : '없음'}
+자동 저장: 30초마다 활성화
+
 • 🎨 버튼으로 지도 스타일 변경
 • ⏱️ 버튼으로 시간 시뮬레이션 제어
 • 📊 버튼으로 실시간 통계 확인`);
+        }
+
+        // 저장 정보 표시
+        function showDataInfo() {
+            const dataSize = localStorage.getItem('daedongMap_data');
+            const sizeKB = dataSize ? Math.round(dataSize.length / 1024) : 0;
+            
+            alert(`💾 저장 데이터 정보
+
+저장된 경로: ${routes.length}개
+체류 구역: ${stayAreas.length}개
+총 이동 거리: ${document.getElementById('totalDistance').textContent}
+데이터 크기: ${sizeKB}KB
+
+마지막 저장: ${lastSaveTime ? lastSaveTime.toLocaleString() : '없음'}
+자동 저장: 매 30초마다
+저장 위치: 브라우저 로컬 저장소
+
+⚠️ 브라우저 데이터를 삭제하면 저장된 경로도 함께 삭제됩니다.
+중요한 데이터는 "📤 내보내기"로 백업하세요.`);
         }
 
         // 데이터 내보내기
@@ -1449,7 +1389,8 @@
                     marker: undefined // marker 객체는 제외
                 })),
                 totalDistance: totalDistance,
-                exportTime: new Date()
+                exportTime: new Date().toISOString(),
+                version: '2.0'
             };
 
             const dataStr = JSON.stringify(data, null, 2);
@@ -1471,8 +1412,20 @@
         window.addEventListener('load', () => {
             initMap();
             
+            // 저장된 데이터 복원
+            setTimeout(() => {
+                loadDataFromStorage();
+            }, 1000);
+            
             // 통계 업데이트 타이머
             setInterval(updateStats, 1000);
+            
+            // 자동 저장 타이머 (30초마다)
+            setInterval(() => {
+                if (routes.length > 0 || stayAreas.length > 0 || isTracking) {
+                    saveDataToStorage();
+                }
+            }, 30000);
             
             // 모바일에서 사이드바 기본 숨김
             if (window.innerWidth <= 768) {
@@ -1499,6 +1452,8 @@
         // 페이지 나가기 전 확인
         window.addEventListener('beforeunload', (event) => {
             if (isTracking) {
+                // 추적 중인 데이터 마지막 저장
+                saveDataToStorage();
                 event.preventDefault();
                 event.returnValue = '추적 중인 데이터가 있습니다. 정말 나가시겠습니까?';
             }
