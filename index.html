@@ -84,10 +84,26 @@
             border-color: #ff6b6b;
         }
 
-        .control-button.tracking {
-            background: linear-gradient(45deg, #2ecc71, #27ae60);
-            border-color: #2ecc71;
-            animation: pulse 2s infinite;
+        .control-button.locating {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            border-color: #f39c12;
+            animation: pulse 1s infinite;
+        }
+
+        .smart-gps-feedback {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            display: none;
         }
 
         .stats-popup {
@@ -508,12 +524,14 @@
             
             <!-- 플로팅 컨트롤 버튼들 -->
             <div class="floating-controls">
-                <div class="control-button" id="floatingTrackBtn" onclick="toggleTracking()" title="GPS 추적">📍</div>
+                <div class="control-button" id="floatingTrackBtn" onclick="smartGPSAction()" title="GPS 추적/내 위치">📍</div>
                 <div class="control-button" onclick="toggleStatsPopup()" title="통계 보기">📊</div>
                 <div class="control-button" onclick="toggleSimulationFromFloat()" id="floatingSimBtn" title="시뮬레이션">⏱️</div>
-                <div class="control-button" onclick="centerOnLocation()" title="내 위치로">🎯</div>
                 <div class="control-button" onclick="changeMapStyle()" title="지도 스타일">🎨</div>
             </div>
+
+            <!-- 스마트 GPS 피드백 -->
+            <div class="smart-gps-feedback" id="gpsfeedback">GPS 위치 찾는 중...</div>
 
             <!-- 통계 팝업 -->
             <div class="stats-popup" id="statsPopup">
@@ -1046,21 +1064,133 @@
             });
         }
 
-        function toggleTracking() {
-            console.log('플로팅 버튼에서 추적 토글');
+        // 스마트 GPS 액션 (추적 + 내 위치 통합)
+        function smartGPSAction() {
             const floatingBtn = document.getElementById('floatingTrackBtn');
+            const feedback = document.getElementById('gpsfeedback');
             
-            if (!isTracking) {
-                startTracking();
-                floatingBtn.classList.add('tracking');
-                floatingBtn.title = 'GPS 추적 중 (클릭하여 정지)';
-                console.log('추적 시작됨');
-            } else {
+            console.log('스마트 GPS 액션 호출됨, 현재 추적 상태:', isTracking);
+            
+            if (isTracking) {
+                // 추적 중이면 정지
                 stopTracking();
                 floatingBtn.classList.remove('tracking');
-                floatingBtn.title = 'GPS 추적';
-                console.log('추적 정지됨');
+                floatingBtn.title = 'GPS 추적 시작';
+                floatingBtn.textContent = '📍';
+                
+                showGPSFeedback('🛑 GPS 추적 정지됨');
+                console.log('GPS 추적 정지됨');
+                
+            } else {
+                // 추적 중이 아니면 위치 확인 후 추적 시작
+                floatingBtn.classList.add('locating');
+                floatingBtn.title = 'GPS 위치 찾는 중...';
+                floatingBtn.textContent = '🔍';
+                
+                showGPSFeedback('📍 GPS 위치 찾는 중...');
+                
+                // 먼저 현재 위치로 이동
+                if (currentLocationMarker) {
+                    const pos = currentLocationMarker.getLatLng();
+                    map.setView([pos.lat, pos.lng], 16);
+                    
+                    // 위치 이동 후 추적 시작
+                    setTimeout(() => {
+                        startGPSTracking();
+                    }, 500);
+                } else {
+                    // 위치 마커가 없으면 위치 요청 후 추적 시작
+                    requestLocationThenTrack();
+                }
             }
+        }
+
+        function startGPSTracking() {
+            const floatingBtn = document.getElementById('floatingTrackBtn');
+            
+            startTracking();
+            floatingBtn.classList.remove('locating');
+            floatingBtn.classList.add('tracking');
+            floatingBtn.title = 'GPS 추적 중 (클릭하여 정지)';
+            floatingBtn.textContent = '🔴';
+            
+            showGPSFeedback('✅ GPS 추적 시작됨');
+            console.log('GPS 추적 시작됨');
+        }
+
+        function requestLocationThenTrack() {
+            const floatingBtn = document.getElementById('floatingTrackBtn');
+            
+            if (!navigator.geolocation) {
+                floatingBtn.classList.remove('locating');
+                floatingBtn.textContent = '📍';
+                showGPSFeedback('❌ GPS를 지원하지 않는 브라우저');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    
+                    // 지도 중심을 현재 위치로 이동
+                    map.setView([latitude, longitude], 16);
+                    
+                    // 현재 위치 마커 생성/업데이트
+                    if (currentLocationMarker) {
+                        currentLocationMarker.setLatLng([latitude, longitude]);
+                    } else {
+                        currentLocationMarker = L.marker([latitude, longitude], {
+                            icon: L.divIcon({
+                                className: 'current-location-marker',
+                                html: '<div class="current-location"></div>',
+                                iconSize: [18, 18],
+                                iconAnchor: [9, 9]
+                            })
+                        }).addTo(map);
+                    }
+                    
+                    // 위치 확인 후 추적 시작
+                    setTimeout(() => {
+                        startGPSTracking();
+                    }, 500);
+                },
+                (error) => {
+                    console.error('위치 요청 실패:', error);
+                    floatingBtn.classList.remove('locating');
+                    floatingBtn.textContent = '📍';
+                    
+                    let errorMsg = '위치 접근 실패';
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = '위치 권한이 거부됨';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = '위치 정보를 가져올 수 없음';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = '위치 요청 시간 초과';
+                            break;
+                    }
+                    
+                    showGPSFeedback('❌ ' + errorMsg);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 30000
+                }
+            );
+        }
+
+        function showGPSFeedback(message) {
+            const feedback = document.getElementById('gpsfeedback');
+            feedback.textContent = message;
+            feedback.style.display = 'block';
+            
+            // 3초 후 자동 숨김
+            setTimeout(() => {
+                feedback.style.display = 'none';
+            }, 3000);
         }
 
         // 기존 함수들 업데이트
@@ -1082,24 +1212,16 @@
                 stopBtn.className = 'stopped';
             }
             
-            // 플로팅 버튼 상태 업데이트
-            const floatingBtn = document.getElementById('floatingTrackBtn');
+            // 플로팅 시뮬레이션 버튼 상태 업데이트
             const floatingSimBtn = document.getElementById('floatingSimBtn');
-            
-            if (isTracking) {
-                floatingBtn.classList.add('tracking');
-                floatingBtn.title = 'GPS 추적 중 (클릭하여 정지)';
-            } else {
-                floatingBtn.classList.remove('tracking');
-                floatingBtn.title = 'GPS 추적 시작';
-            }
-            
-            if (simulationRunning) {
-                floatingSimBtn.classList.add('active');
-                floatingSimBtn.title = '시뮬레이션 중 (클릭하여 정지)';
-            } else {
-                floatingSimBtn.classList.remove('active');
-                floatingSimBtn.title = '시뮬레이션 시작';
+            if (floatingSimBtn) {
+                if (simulationRunning) {
+                    floatingSimBtn.classList.add('active');
+                    floatingSimBtn.title = '시뮬레이션 중 (클릭하여 정지)';
+                } else {
+                    floatingSimBtn.classList.remove('active');
+                    floatingSimBtn.title = '시뮬레이션 시작';
+                }
             }
         }
 
