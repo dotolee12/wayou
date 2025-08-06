@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나의 대동여지도 - GPS 경로 추적</title>
+    <meta name="description" content="GPS로 실제 걸은 길을 추적하고 시간에 따라 변화하는 기억 지도">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+    <div class="loading" id="loading">
+        🗺️ GPS 추적 시스템 로딩 중...<br>
+        <small>위치 권한을 허용해주세요</small>
+    </div>
+
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <h1>🗺️ 나의 대동여지도</h1>
+            
+            <div class="description">
+                <strong>실제 GPS로 걸은 길 추적</strong><br>
+                위치 권한을 허용하고 추적을 시작하면<br>
+                실제로 걸은 경로가 기록됩니다.
+            </div>
+
+            <div class="save-status" id="saveStatus">
+                💾 자동 저장 기능 활성화<br>
+                <small>30초마다 자동 저장됩니다</small>
+            </div>
+
+            <div id="permissionBanner" class="permission-banner" style="display: none;">
+                📍 위치 권한이 필요합니다!<br>
+                <button onclick="app.requestLocation()" style="margin-top: 5px; font-size: 10px;">권한 요청</button>
+            </div>
+            
+            <div class="section">
+                <h3>🎯 GPS 추적 제어</h3>
+                <div class="tracking-status" id="trackingStatus">
+                    <div class="status-indicator status-stopped"></div>
+                    <span>추적 중지됨</span>
+                </div>
+                <button onclick="app.startTracking()" id="startBtn" class="full-width">📍 추적 시작</button>
+                <button onclick="app.pauseTracking()" id="pauseBtn" class="stopped">⏸️ 일시정지</button>
+                <button onclick="app.stopTracking()" id="stopBtn" class="stopped">⏹️ 완전정지</button>
+                <br><br>
+                <button onclick="app.centerOnLocation()" class="full-width">🎯 내 위치로</button>
+            </div>
+
+            <div class="section">
+                <h3>📊 실시간 통계</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalDistance">0m</div>
+                        <div class="stat-label">총 거리</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="currentSpeed">0</div>
+                        <div class="stat-label">현재 속도 (km/h)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="trackingTime">00:00</div>
+                        <div class="stat-label">추적 시간</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="routeCount">0</div>
+                        <div class="stat-label">저장된 경로</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>⏱️ 시간 시뮬레이션</h3>
+                <button onclick="app.toggleSimulation()" id="simBtn">시뮬레이션 시작</button>
+                <button onclick="app.clearAllRoutes()">모든 경로 삭제</button>
+                <br><br>
+                <strong>시간 가속:</strong><br>
+                <button onclick="app.setSpeed(1)" class="speed active">1x</button>
+                <button onclick="app.setSpeed(60)" class="speed">60x</button>
+                <button onclick="app.setSpeed(600)" class="speed">600x</button>
+                <button onclick="app.setSpeed(3600)" class="speed">3600x</button>
+            </div>
+
+            <div class="section">
+                <h3>💾 데이터 관리</h3>
+                <button onclick="app.saveDataManually()" class="full-width">💾 수동 저장</button>
+                <button onclick="app.clearStoredData()" class="danger">🗑️ 저장 데이터 삭제</button>
+                <button onclick="app.exportData()">📤 내보내기</button>
+            </div>
+
+            <div class="section">
+                <h3>🎨 6단계 기억 시스템</h3>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFFFFF; border: 1px solid #666;"></div>
+                        <span>1단계: 흰색 (100%→40%, 10시간)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #90EE90;"></div>
+                        <span>→ 연두색 (40%)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #32CD32;"></div>
+                        <span>2단계: 초록색 (40%, 14시간)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFA500;"></div>
+                        <span>3단계: 주황색 (40%, 7일)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FF0000;"></div>
+                        <span>4단계: 빨간색 (40%, 30일)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #8B4513;"></div>
+                        <span>5단계: 갈색 (40%, 영구)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #FFD700;"></div>
+                        <span>🏠 체류 구역: 황금색 (1시간+ 머문 곳)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer">
+                <p><strong>나의 대동여지도 v2.1</strong></p>
+                <p>최적화된 GPS 경로 추적 시스템</p>
+                <p style="margin-top: 5px;">
+                    <a href="#" onclick="app.showHelp()" style="color: #4ecdc4; text-decoration: none;">❓ 사용법</a> |
+                    <a href="#" onclick="app.showDataInfo()" style="color: #4ecdc4; text-decoration: none;">💾 저장 정보</a>
+                </p>
+            </div>
+        </div>
+
+        <div class="main">
+            <!-- 사이드바 토글 버튼 -->
+            <div class="toggle-sidebar" onclick="app.ui.toggleSidebar()">☰</div>
+            
+            <!-- 플로팅 컨트롤 버튼들 -->
+            <div class="floating-controls">
+                <div class="control-button" id="floatingTrackBtn" onclick="app.smartGPSAction()" title="GPS 추적/내 위치">📍</div>
+                <div class="control-button" onclick="app.ui.toggleStatsPopup()" title="통계 보기">📊</div>
+                <div class="control-button" id="floatingSimBtn" onclick="app.toggleSimulation()" title="시뮬레이션">⏱️</div>
+                <div class="control-button" onclick="app.map.changeMapStyle()" title="지도 스타일">🎨</div>
+            </div>
+
+            <!-- 스마트 GPS 피드백 -->
+            <div class="smart-gps-feedback" id="gpsFeedback">GPS 위치 찾는 중...</div>
+
+            <!-- 통계 팝업 -->
+            <div class="stats-popup" id="statsPopup">
+                <h4 style="margin-bottom: 10px; color: #4ecdc4;">📊 실시간 통계</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px;">
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupDistance">0m</div>
+                        <div style="opacity: 0.8;">총 거리</div>
+                    </div>
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupTime">00:00</div>
+                        <div style="opacity: 0.8;">추적 시간</div>
+                    </div>
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupRoutes">0</div>
+                        <div style="opacity: 0.8;">저장된 경로</div>
+                    </div>
+                    <div>
+                        <div style="color: #4ecdc4; font-weight: bold;" id="popupStatus">정지</div>
+                        <div style="opacity: 0.8;">상태</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button onclick="app.showSettings()" title="설정">⚙️</button>
+                <button onclick="app.showHelp()" title="도움말">❓</button>
+            </div>
+
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <!-- App JavaScript -->
+    <script src="js/utils.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/gps.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

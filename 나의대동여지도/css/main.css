@@ -1,0 +1,387 @@
+/* css/main.css - 메인 스타일 */
+
+/* ===== 리셋 및 기본 스타일 ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: white;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== 레이아웃 ===== */
+.container {
+    display: flex;
+    height: 100vh;
+    position: relative;
+}
+
+.sidebar {
+    width: 300px;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 20px;
+    overflow-y: auto;
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1000;
+    will-change: transform;
+}
+
+.sidebar.collapsed {
+    transform: translateX(-100%);
+}
+
+.main {
+    flex: 1;
+    position: relative;
+}
+
+#map {
+    height: 100vh;
+    width: 100%;
+}
+
+/* ===== 로딩 화면 ===== */
+.loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    padding: 20px;
+    border-radius: 10px;
+    color: #4ecdc4;
+    z-index: 2000;
+    text-align: center;
+}
+
+/* ===== 헤더 및 타이틀 ===== */
+h1 {
+    color: #4ecdc4;
+    margin-bottom: 20px;
+    text-align: center;
+    font-size: 18px;
+    background: linear-gradient(45deg, #4ecdc4, #44a08d);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ===== 섹션 스타일 ===== */
+.section {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section h3 {
+    margin-bottom: 10px;
+    color: #4ecdc4;
+    font-size: 14px;
+}
+
+/* ===== 버튼 스타일 ===== */
+button {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    background: linear-gradient(45deg, #667eea, #764ba2);
+    color: white;
+    cursor: pointer;
+    margin: 3px;
+    font-size: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    width: calc(50% - 6px);
+    will-change: transform;
+}
+
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+button.active, button.tracking {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+}
+
+button.stopped {
+    background: linear-gradient(45deg, #95a5a6, #7f8c8d);
+}
+
+button.full-width {
+    width: calc(100% - 6px);
+}
+
+button.danger {
+    background: linear-gradient(45deg, #e74c3c, #c0392b);
+}
+
+/* ===== 플로팅 컨트롤 ===== */
+.floating-controls {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1500;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.control-button {
+    width: 50px;
+    height: 50px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    user-select: none;
+    will-change: transform, background;
+}
+
+.control-button:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: scale(1.05);
+}
+
+.control-button.active {
+    background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+    border-color: #ff6b6b;
+}
+
+.control-button.tracking {
+    background: linear-gradient(45deg, #2ecc71, #27ae60);
+    border-color: #2ecc71;
+    animation: pulse 2s infinite;
+}
+
+.control-button.locating {
+    background: linear-gradient(45deg, #f39c12, #e67e22);
+    border-color: #f39c12;
+    animation: pulse 1s infinite;
+}
+
+/* ===== 통계 표시 ===== */
+.stats-popup {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.9);
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    min-width: 200px;
+    backdrop-filter: blur(10px);
+    z-index: 1400;
+    transform: translateY(-20px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stats-popup.show {
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-size: 11px;
+}
+
+.stat-item {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px;
+    border-radius: 5px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 14px;
+    font-weight: bold;
+    color: #4ecdc4;
+}
+
+.stat-label {
+    font-size: 10px;
+    opacity: 0.8;
+}
+
+/* ===== GPS 피드백 ===== */
+.smart-gps-feedback {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 12px;
+    z-index: 1600;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smart-gps-feedback.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ===== 추적 상태 표시 ===== */
+.tracking-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: pulse 2s infinite;
+}
+
+.status-tracking { background: #2ecc71; }
+.status-stopped { background: #e74c3c; }
+.status-paused { background: #f39c12; }
+
+/* ===== 토글 버튼 ===== */
+.toggle-sidebar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 40px;
+    height: 40px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: white;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    z-index: 1600;
+    backdrop-filter: blur(10px);
+}
+
+.sidebar.collapsed + .main .toggle-sidebar {
+    display: flex;
+}
+
+/* ===== 기타 요소들 ===== */
+.description {
+    background: rgba(76, 175, 80, 0.1);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 11px;
+    border-left: 3px solid #4caf50;
+    line-height: 1.3;
+}
+
+.save-status {
+    background: rgba(46, 204, 113, 0.1);
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 10px;
+    border-left: 3px solid #2ecc71;
+    text-align: center;
+}
+
+.permission-banner {
+    background: rgba(241, 196, 15, 0.2);
+    color: #f1c40f;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 11px;
+    border: 1px solid rgba(241, 196, 15, 0.3);
+    text-align: center;
+}
+
+.legend {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 11px;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    margin-right: 8px;
+    opacity: 0.8;
+}
+
+.footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 10px;
+}
+
+.controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1500;
+}
+
+.controls button {
+    background: rgba(0, 0, 0, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    margin-left: 5px;
+    width: auto;
+}
+
+/* ===== Leaflet 커스터마이징 ===== */
+.leaflet-container {
+    font-family: inherit;
+}
+
+.leaflet-control-zoom a {
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    color: white !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}

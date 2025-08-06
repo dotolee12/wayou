@@ -1,0 +1,225 @@
+/* css/animations.css - 애니메이션 관련 스타일 */
+
+/* ===== 기본 애니메이션 ===== */
+@keyframes pulse {
+    0% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.7;
+        transform: scale(1.05);
+    }
+    100% { 
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-100%);
+    }
+}
+
+/* ===== 로딩 애니메이션 ===== */
+@keyframes loading {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    margin: 10px auto;
+    border: 3px solid transparent;
+    border-top-color: #4ecdc4;
+    border-radius: 50%;
+    animation: loading 1s linear infinite;
+}
+
+/* ===== 물결 효과 ===== */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+.control-button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+}
+
+.control-button:active::after {
+    animation: ripple 0.6s ease-out;
+}
+
+/* ===== GPS 신호 애니메이션 ===== */
+@keyframes gpsSignal {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(78, 205, 196, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(78, 205, 196, 0);
+    }
+}
+
+.status-tracking {
+    animation: pulse 2s infinite, gpsSignal 2s infinite;
+}
+
+/* ===== 진동 효과 (에러 시) ===== */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.error-shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* ===== 부드러운 전환 효과 ===== */
+.smooth-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== 버튼 호버 효과 ===== */
+@keyframes buttonGlow {
+    0% {
+        box-shadow: 0 0 5px rgba(78, 205, 196, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(78, 205, 196, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 5px rgba(78, 205, 196, 0.5);
+    }
+}
+
+button:hover {
+    animation: buttonGlow 2s infinite;
+}
+
+/* ===== 통계 숫자 변경 애니메이션 ===== */
+@keyframes countUp {
+    from {
+        transform: translateY(10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.stat-value {
+    animation: countUp 0.3s ease-out;
+}
+
+/* ===== 저장 성공 애니메이션 ===== */
+@keyframes saveSuccess {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.2);
+        color: #2ecc71;
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.save-success {
+    animation: saveSuccess 0.5s ease-in-out;
+}
+
+/* ===== 슬라이드 다운 효과 ===== */
+@keyframes slideDown {
+    from {
+        max-height: 0;
+        opacity: 0;
+    }
+    to {
+        max-height: 500px;
+        opacity: 1;
+    }
+}
+
+/* ===== 페이드 인/아웃 클래스 ===== */
+.fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.fade-out {
+    animation: fadeOut 0.3s ease-out forwards;
+}
+
+/* ===== 성능 최적화를 위한 GPU 가속 ===== */
+.gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* ===== 애니메이션 비활성화 (접근성) ===== */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

@@ -1,0 +1,192 @@
+/* css/mobile.css - 모바일 반응형 스타일 */
+
+/* ===== 태블릿 (768px 이하) ===== */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        height: 100vh;
+        left: 0;
+        top: 0;
+        z-index: 2000;
+        transform: translateX(-100%);
+    }
+    
+    .sidebar.show {
+        transform: translateX(0);
+    }
+    
+    .main { 
+        width: 100%;
+    }
+    
+    #map { 
+        height: 100vh; 
+    }
+    
+    .toggle-sidebar {
+        display: flex !important;
+    }
+    
+    .floating-controls {
+        top: 70px;
+    }
+    
+    /* 통계 팝업 위치 조정 */
+    .stats-popup {
+        right: 10px;
+        max-width: calc(100vw - 100px);
+    }
+}
+
+/* ===== 모바일 (480px 이하) ===== */
+@media (max-width: 480px) {
+    /* 사이드바 조정 */
+    .sidebar {
+        width: 280px;
+    }
+    
+    /* 플로팅 컨트롤 조정 */
+    .floating-controls {
+        top: 70px;
+        left: 10px;
+    }
+    
+    .control-button {
+        width: 45px;
+        height: 45px;
+        font-size: 16px;
+    }
+    
+    /* 통계 팝업 조정 */
+    .stats-popup {
+        right: 10px;
+        top: 70px;
+        min-width: 180px;
+        font-size: 12px;
+        padding: 12px;
+    }
+    
+    /* 제목 크기 조정 */
+    h1 {
+        font-size: 16px;
+    }
+    
+    .section h3 {
+        font-size: 13px;
+    }
+    
+    /* 버튼 크기 조정 */
+    button {
+        font-size: 11px;
+        padding: 7px 10px;
+    }
+    
+    /* 통계 그리드 조정 */
+    .stats-grid {
+        font-size: 10px;
+    }
+    
+    .stat-value {
+        font-size: 13px;
+    }
+    
+    /* 설명 텍스트 조정 */
+    .description {
+        font-size: 10px;
+    }
+    
+    /* GPS 피드백 조정 */
+    .smart-gps-feedback {
+        font-size: 11px;
+        padding: 6px 12px;
+    }
+}
+
+/* ===== 작은 모바일 (360px 이하) ===== */
+@media (max-width: 360px) {
+    /* 사이드바 전체 너비 */
+    .sidebar {
+        width: 100%;
+    }
+    
+    /* 플로팅 컨트롤 더 작게 */
+    .control-button {
+        width: 40px;
+        height: 40px;
+        font-size: 14px;
+    }
+    
+    /* 통계 팝업 더 작게 */
+    .stats-popup {
+        min-width: 160px;
+        padding: 10px;
+    }
+    
+    .stats-popup h4 {
+        font-size: 12px;
+        margin-bottom: 8px;
+    }
+    
+    /* 레전드 아이템 조정 */
+    .legend-item {
+        font-size: 10px;
+    }
+    
+    .legend-color {
+        width: 10px;
+        height: 10px;
+    }
+}
+
+/* ===== 가로 모드 대응 ===== */
+@media (max-height: 500px) and (orientation: landscape) {
+    .sidebar {
+        padding: 10px;
+    }
+    
+    .section {
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    
+    h1 {
+        margin-bottom: 10px;
+        font-size: 16px;
+    }
+    
+    .floating-controls {
+        flex-direction: row;
+        top: 10px;
+    }
+    
+    .control-button {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* ===== 터치 최적화 ===== */
+@media (pointer: coarse) {
+    /* 터치 타겟 크기 증가 */
+    button {
+        min-height: 36px;
+    }
+    
+    .control-button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    
+    /* 링크 터치 영역 증가 */
+    .footer a {
+        padding: 5px 10px;
+        margin: -5px -10px;
+    }
+}
+
+/* ===== 다크 모드 대응 ===== */
+@media (prefers-color-scheme: dark) {
+    /* 이미 다크 테마이므로 추가 조정 불필요 */
+}
+
+/* ===== 고해상도 디스플레이
