@@ -9,6 +9,7 @@ class DaedongMapApp {
         this.totalDistance = 0;
         this.lastPosition = null;
         this.trackingStartTime = null;
+        this.lastSaveTime = null;
         
         // 시뮬레이션
         this.currentTime = new Date();
@@ -30,7 +31,7 @@ class DaedongMapApp {
         // 상수
         this.STAY_THRESHOLD = 3600000; // 1시간
         this.STAY_RADIUS = 50; // 50미터
-        this.AUTOSAVE_INTERVAL = 30000; // 30초
+        this.AUTOSAVE_INTERVAL = 5000; // 5초로 단축
     }
 
     // 앱 초기화
@@ -91,12 +92,20 @@ class DaedongMapApp {
         const savedData = this.storage.loadFromStorage();
         
         if (savedData) {
-            this.routes = savedData.routes;
-            this.stayAreas = savedData.stayAreas;
-            this.totalDistance = savedData.totalDistance;
+            this.routes = savedData.routes || [];
+            this.stayAreas = savedData.stayAreas || [];
+            this.totalDistance = savedData.totalDistance || 0;
+            
+            // 현재 추적 중이던 경로 복원 (있다면)
+            if (savedData.currentRoute && savedData.currentRoute.points && savedData.currentRoute.points.length > 0) {
+                this.currentRoute = savedData.currentRoute;
+                console.log('진행 중이던 경로 복원:', this.currentRoute.points.length + '개 지점');
+            }
             
             // 경로 그리기
-            this.routes.forEach(route => this.map.drawRoute(route));
+            this.routes.forEach(route => {
+                this.map.drawRoute(route, this.currentTime);
+            });
             
             // 체류 구역 그리기
             this.stayAreas.forEach(area => {
@@ -105,21 +114,41 @@ class DaedongMapApp {
                 }
             });
             
-            this.ui.showFeedback(`저장된 데이터 복원 완료 (${savedData.lastSaved.toLocaleString()})`);
+            console.log('데이터 복원 완료:', {
+                경로수: this.routes.length,
+                체류구역: this.stayAreas.length,
+                총거리: this.totalDistance
+            });
+            
+            this.ui.showFeedback(`저장된 데이터 복원 완료 (경로: ${this.routes.length}개)`);
+        } else {
+            console.log('저장된 데이터 없음');
         }
     }
 
-    // 자동 저장 설정
+    // 자동 저장 설정 - 더 자주 저장
     setupAutoSave() {
+        // 5초마다 자동 저장
         setInterval(() => {
-            const hasData = this.routes.length > 0 || 
-                          this.stayAreas.length > 0 || 
-                          this.gps.isTracking;
-                          
-            if (hasData) {
+            this.saveData();
+        }, this.AUTOSAVE_INTERVAL);
+        
+        // 페이지 나가기 전 저장
+        window.addEventListener('beforeunload', () => {
+            this.saveData();
+        });
+        
+        // 탭 전환 시 저장
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
                 this.saveData();
             }
-        }, this.AUTOSAVE_INTERVAL);
+        });
+        
+        // 모바일에서 앱 전환 시 저장
+        window.addEventListener('blur', () => {
+            this.saveData();
+        });
     }
 
     // 이벤트 리스너 설정
@@ -130,16 +159,6 @@ class DaedongMapApp {
                 this.saveData();
                 event.preventDefault();
                 event.returnValue = '추적 중인 데이터가 있습니다. 정말 나가시겠습니까?';
-            }
-        });
-
-        // 가시성 변경 처리
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                console.log('페이지 숨김 - 성능 최적화 모드');
-            } else {
-                console.log('페이지 표시 - 일반 모드');
-                this.updateStats();
             }
         });
 
@@ -235,13 +254,16 @@ class DaedongMapApp {
             this.lastPosition = { lat: data.lat, lng: data.lng };
             
             // 경로 그리기
-            this.map.drawRoute(this.currentRoute);
+            this.map.drawRoute(this.currentRoute, this.currentTime);
             
             // 체류 구역 확인
             this.checkStayArea(data.lat, data.lng, data.timestamp);
             
-            // 데이터 저장
-            this.saveData();
+            // 5초마다 자동 저장 (throttle)
+            if (!this.lastSaveTime || Date.now() - this.lastSaveTime > 5000) {
+                this.saveData();
+                this.lastSaveTime = Date.now();
+            }
         }
         
         // 통계 업데이트
@@ -275,12 +297,16 @@ class DaedongMapApp {
         if (this.currentRoute && this.currentRoute.points.length > 1) {
             this.currentRoute.endTime = new Date();
             this.routes.push(this.currentRoute);
+            
+            // 즉시 저장!
             this.saveData();
             
             console.log('경로 저장 완료', {
                 points: this.currentRoute.points.length,
                 distance: this.currentRoute.distance
             });
+            
+            this.ui.showFeedback(`경로가 저장되었습니다 (${this.currentRoute.points.length}개 지점)`);
         }
         
         this.currentRoute = null;
@@ -288,21 +314,34 @@ class DaedongMapApp {
         this.trackingStartTime = null;
         
         this.ui.updateTrackingStatus(false, false);
-        this.ui.showFeedback('추적이 완전히 정지되었습니다 (자동 저장됨)');
     }
 
     onTrackingPause(isPaused) {
         this.ui.updateTrackingStatus(true, isPaused);
         this.ui.showFeedback(isPaused ? '추적 일시정지됨' : '추적 재개됨');
+        
+        // 일시정지 시에도 저장
+        if (isPaused) {
+            this.saveData();
+        }
     }
 
     // === 데이터 관리 메서드 ===
     
     saveData() {
-        this.storage.saveToStorage({
+        const data = {
             routes: this.routes,
             stayAreas: this.stayAreas,
-            totalDistance: this.totalDistance
+            totalDistance: this.totalDistance,
+            currentRoute: this.currentRoute // 현재 추적 중인 경로도 저장
+        };
+        
+        this.storage.saveToStorage(data);
+        
+        console.log('데이터 저장됨:', {
+            경로수: this.routes.length,
+            총거리: this.totalDistance,
+            현재경로: this.currentRoute ? this.currentRoute.points.length : 0
         });
     }
 
@@ -336,6 +375,7 @@ class DaedongMapApp {
             this.stayAreas = [];
             this.totalDistance = 0;
             this.cachedDistance = null;
+            this.currentRoute = null;
             
             this.storage.clearStoredData();
             this.updateStats();
@@ -348,7 +388,8 @@ class DaedongMapApp {
         if (this.storage.exportData({
             routes: this.routes,
             stayAreas: this.stayAreas,
-            totalDistance: this.totalDistance
+            totalDistance: this.totalDistance,
+            currentRoute: this.currentRoute
         })) {
             this.ui.showFeedback('데이터가 내보내기되었습니다');
         } else {
@@ -370,10 +411,21 @@ class DaedongMapApp {
     }
 
     startSimulation() {
+        console.log('시뮬레이션 시작, 속도:', this.simulationSpeed);
+        
         this.simulationInterval = setInterval(() => {
+            // 현재 시간을 속도에 맞춰 증가
             this.currentTime = new Date(this.currentTime.getTime() + (1000 * this.simulationSpeed));
+            
+            // 모든 경로 업데이트
             this.map.updateAllRoutes(this.routes, this.currentTime);
-        }, 100);
+            
+            // UI에 현재 시뮬레이션 시간 표시 (선택사항)
+            if (this.simulationSpeed > 1) {
+                const timeStr = this.currentTime.toLocaleString();
+                console.log('시뮬레이션 시간:', timeStr);
+            }
+        }, 100); // 0.1초마다 업데이트
         
         this.ui.showFeedback(`시간 가속 ${this.simulationSpeed}x 시작`);
     }
@@ -385,18 +437,34 @@ class DaedongMapApp {
         }
         
         this.currentTime = new Date();
+        this.map.updateAllRoutes(this.routes, this.currentTime); // 현재 시간으로 다시 그리기
         this.ui.showFeedback('시간 가속 정지');
     }
 
     setSpeed(newSpeed) {
         this.simulationSpeed = newSpeed;
-        this.ui.setActiveSpeedButton(newSpeed);
         
+        // 모든 speed 버튼의 active 클래스 제거
+        document.querySelectorAll('.speed').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // 클릭된 버튼에 active 클래스 추가
+        const buttons = document.querySelectorAll('.speed');
+        buttons.forEach(btn => {
+            if (btn.textContent === `${newSpeed}x`) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // 시뮬레이션 실행 중이면 재시작
         if (this.simulationRunning) {
             this.stopSimulation();
             this.startSimulation();
-            this.ui.showFeedback(`시간 가속 ${newSpeed}x로 변경`);
         }
+        
+        this.ui.showFeedback(`시간 가속 ${newSpeed}x로 변경`);
+        console.log('시뮬레이션 속도 변경:', newSpeed);
     }
 
     // === 기타 기능 메서드 ===
@@ -470,25 +538,22 @@ class DaedongMapApp {
 3. 실제로 걸어다니면서 경로 기록
 4. "⏹️ 완전정지"로 추적 종료
 
-🎨 6단계 기억 시스템:
-• 흰색(10시간) → 초록(14시간) → 주황(7일) → 빨강(30일) → 갈색(영구)
-• 시간이 지날수록 기억이 흐려집니다
-• 1시간 이상 머문 곳은 황금색 체류 구역
+🎨 시간에 따른 경로 변화:
+• 0-10시간: 흰색 (100%→50% 투명도)
+• 10-24시간: 초록색 (40% 투명도)
+• 24시간-7일: 주황색 (40% 투명도)
+• 7일-30일: 빨간색 (40% 투명도)
+• 30일 이후: 갈색 (40% 투명도)
+• 1시간 이상 머문 곳: 황금색 체류 구역
 
 ⏱️ 시간 시뮬레이션:
 • 시간을 빠르게 진행하여 기억 변화 확인
-• 3600x 속도로 30일을 30초에 시뮬레이션
+• 1x, 60x, 600x, 3600x 속도 선택 가능
 
-💾 최적화된 자동 저장:
-• 실시간 디바운스 저장
-• 데이터 압축 및 검증
-• 메모리 효율적 관리
-
-📱 스마트 버튼:
-• 📍: GPS 추적 시작/정지
-• 📊: 실시간 통계 보기 
-• ⏱️: 시간 시뮬레이션
-• 🎨: 지도 스타일 변경
+💾 자동 저장:
+• 5초마다 자동 저장
+• 페이지 새로고침해도 데이터 유지
+• 수동 백업/복원 가능
 
 📊 현재 상태:
 • 저장된 경로: ${this.routes.length}개
@@ -515,16 +580,13 @@ class DaedongMapApp {
 💾 저장 상태:
 사용 용량: ${(storageStatus.used / 1024).toFixed(1)}KB / ${(storageStatus.total / 1024 / 1024).toFixed(1)}MB
 사용률: ${storageStatus.percentage}%
+자동 저장: 5초마다
 
 🚀 성능 최적화:
 • Canvas 렌더링: 활성화
 • 쓰로틀/디바운스: 활성화
 • 메모리 캐시: 활성화
-• GPS 필터링: 적응형
-
-• 🎨 버튼으로 지도 스타일 변경
-• ⏱️ 버튼으로 시간 시뮬레이션 제어
-• 📊 버튼으로 실시간 통계 확인`;
+• GPS 필터링: 적응형`;
 
         this.ui.showDialog({
             title: '설정',
@@ -541,18 +603,19 @@ class DaedongMapApp {
 저장된 경로: ${this.routes.length}개
 체류 구역: ${this.stayAreas.length}개
 총 이동 거리: ${Utils.formatDistance(this.totalDistance)}
+현재 추적 중: ${this.currentRoute ? '예 (' + this.currentRoute.points.length + '개 지점)' : '아니오'}
 
 저장소 사용량: ${(storageStatus.used / 1024).toFixed(1)}KB
 전체 용량: ${(storageStatus.total / 1024 / 1024).toFixed(1)}MB
 사용률: ${storageStatus.percentage}%
 
-자동 저장: 디바운스 최적화 (실시간)
+자동 저장: 5초마다
 저장 위치: 브라우저 로컬 저장소
 
 ⚠️ 주의사항:
 • 브라우저 데이터 삭제 시 모든 경로 삭제
 • 중요 데이터는 "📤 내보내기"로 백업 필수
-• 5MB 저장소 한계 근접 시 자동 알림`;
+• 시크릿 모드에서는 저장 안 됨`;
 
         this.ui.showDialog({
             title: '저장 정보',
@@ -592,7 +655,8 @@ window.addEventListener('load', () => {
             totalDistance: Utils.formatDistance(window.app.totalDistance),
             stayAreas: window.app.stayAreas.length,
             isTracking: window.app.gps.isTracking,
-            gpsStatus: window.app.gps.getStatus()
+            gpsStatus: window.app.gps.getStatus(),
+            currentRoute: window.app.currentRoute
         }),
         
         clearCache: () => {
@@ -627,6 +691,7 @@ window.addEventListener('load', () => {
             
             window.app.routes.push(testRoute);
             window.app.map.drawRoute(testRoute);
+            window.app.saveData();
             console.log('테스트 경로 추가됨');
         }
     };
