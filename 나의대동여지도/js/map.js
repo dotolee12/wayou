@@ -28,14 +28,7 @@ class MapManager {
             }
         ];
 
-        // 기억 단계별 스타일
-        this.memoryStages = [
-            { threshold: 36000, color: '#FFFFFF', opacity: 1.0 },   // 10시간: 흰색
-            { threshold: 50400, color: '#32CD32', opacity: 0.4 },   // 14시간: 초록색
-            { threshold: 604800, color: '#FFA500', opacity: 0.4 },  // 7일: 주황색
-            { threshold: 2592000, color: '#FF0000', opacity: 0.4 }, // 30일: 빨간색
-            { threshold: Infinity, color: '#8B4513', opacity: 0.4 }  // 영구: 갈색
-        ];
+        // 기억 단계별 스타일 - 제거됨 (getRouteStyle에서 직접 계산)
         
         // Throttle된 업데이트 함수
         this.updateCurrentLocationMarker = Utils.throttle(
@@ -127,18 +120,6 @@ class MapManager {
                 opacity: 1,
                 fillOpacity: 0.8
             }).addTo(this.map);
-
-            // 정확도 원 추가 (옵션)
-            // if (accuracy) {
-            //     L.circle([lat, lng], {
-            //         radius: accuracy,
-            //         fillColor: '#4ecdc4',
-            //         color: '#4ecdc4',
-            //         weight: 1,
-            //         opacity: 0.2,
-            //         fillOpacity: 0.1
-            //     }).addTo(this.map);
-            // }
             
         } catch (error) {
             console.error('위치 마커 업데이트 실패:', error);
@@ -162,25 +143,29 @@ class MapManager {
         this.updateCurrentLocationMarker(lat, lng);
     }
 
-    // 경로 스타일 계산
+    // 경로 스타일 계산 - 수정된 버전
     getRouteStyle(startTime, currentTime = new Date()) {
         const elapsed = (currentTime - startTime) / 1000; // 초 단위
+        const elapsedHours = elapsed / 3600; // 시간 단위
         
-        for (let stage of this.memoryStages) {
-            if (elapsed < stage.threshold) {
-                let opacity = stage.opacity;
-                
-                // 첫 단계(흰색)는 시간에 따라 투명도 감소
-                if (stage.threshold === 36000 && elapsed < 36000) {
-                    const progress = elapsed / 36000;
-                    opacity = 1.0 - (0.6 * progress); // 100% → 40%
-                }
-                
-                return { color: stage.color, opacity };
-            }
+        // 10시간 이내: 흰색, 시간당 5% 명암 감소 (100% → 50%)
+        if (elapsedHours <= 10) {
+            const opacity = Math.max(0.5, 1.0 - (elapsedHours * 0.05)); // 100%에서 시작, 시간당 5% 감소, 최소 50%
+            return { color: '#FFFFFF', opacity: opacity };
         }
         
-        return { color: '#8B4513', opacity: 0.4 };
+        // 10시간 이후: 색상 변화, 명암 40% 고정
+        const fixedOpacity = 0.4;
+        
+        if (elapsed < 86400) { // 24시간 (10-24시간)
+            return { color: '#32CD32', opacity: fixedOpacity }; // 초록색
+        } else if (elapsed < 604800) { // 7일 (24시간-7일)
+            return { color: '#FFA500', opacity: fixedOpacity }; // 주황색
+        } else if (elapsed < 2592000) { // 30일 (7일-30일)
+            return { color: '#FF0000', opacity: fixedOpacity }; // 빨간색
+        } else { // 30일 이후
+            return { color: '#8B4513', opacity: fixedOpacity }; // 갈색
+        }
     }
 
     // 경로 그리기
@@ -309,21 +294,6 @@ class MapManager {
         }
     }
 
-    // 히트맵 레이어 추가 (선택사항)
-    addHeatmapLayer(points) {
-        // Leaflet.heat 플러그인이 필요
-        if (typeof L.heatLayer === 'function') {
-            const heat = L.heatLayer(points, {
-                radius: 25,
-                blur: 15,
-                maxZoom: 17
-            }).addTo(this.map);
-            
-            return heat;
-        }
-        return null;
-    }
-
     // 지도 이벤트 리스너 추가
     on(event, callback) {
         if (this.map) {
@@ -341,23 +311,6 @@ class MapManager {
             zoom: this.map.getZoom(),
             style: this.mapStyles[this.currentMapStyle].name
         };
-    }
-
-    // 지도 스크린샷 (선택사항)
-    async takeScreenshot() {
-        // leaflet-image 플러그인이 필요
-        if (typeof leafletImage === 'function') {
-            return new Promise((resolve, reject) => {
-                leafletImage(this.map, (err, canvas) => {
-                    if (err) {
-                        reject(err);
-                    } else {
-                        canvas.toBlob(blob => resolve(blob));
-                    }
-                });
-            });
-        }
-        return null;
     }
 }
 
