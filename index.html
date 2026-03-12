@@ -3,150 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>나의 대동여지도 - GPS 경로 추적</title>
+    <title>나의 대동여지도 - Leaflet</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     
     <style>
-        /* 기본 레이아웃 */
+        /* 화면 꽉 차게 설정 */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: sans-serif; background: #1a1a2e; color: white; overflow: hidden; }
-        .container { display: flex; height: 100vh; position: relative; }
-        #map { flex: 1; height: 100vh; width: 100%; z-index: 1; }
+        body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: white; overflow: hidden; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
 
-        /* 사이드바 스타일 */
+        /* 사이드바: 평소에는 왼쪽으로 숨김 */
         .sidebar {
-            width: 280px; background: rgba(0, 0, 0, 0.9); padding: 20px;
-            overflow-y: auto; z-index: 1000; border-right: 1px solid #444;
-            transition: transform 0.3s;
+            position: fixed; top: 0; left: 0; width: 280px; height: 100vh;
+            background: rgba(0, 0, 0, 0.9); padding: 25px 20px; z-index: 3000;
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(-100%); /* 숨김 상태 */
+            box-shadow: 5px 0 15px rgba(0,0,0,0.5);
         }
-        .sidebar.collapsed { transform: translateX(-100%); position: absolute; }
+        .sidebar.active { transform: translateX(0); } /* 열림 상태 */
 
-        /* 버튼 스타일 */
-        button {
-            width: 100%; padding: 12px; margin: 5px 0; border: none;
-            border-radius: 8px; background: #4ecdc4; color: black;
-            font-weight: bold; cursor: pointer;
-        }
-        button.tracking { background: #ff6b6b; color: white; animation: pulse 1.5s infinite; }
-        
-        /* 플로팅 컨트롤 (모바일용) */
-        .toggle-btn {
-            position: absolute; top: 15px; left: 15px; z-index: 2000;
-            background: #4ecdc4; padding: 10px; border-radius: 5px; color: black;
+        /* 토글 메뉴 버튼 */
+        .menu-toggle {
+            position: fixed; top: 20px; left: 20px; z-index: 2000;
+            background: #4ecdc4; color: black; padding: 12px 18px;
+            border-radius: 50px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border: none;
         }
 
-        .stats-box {
-            background: rgba(255,255,255,0.1); padding: 10px;
-            border-radius: 8px; margin-top: 15px; font-size: 14px;
+        /* 내부 버튼들 */
+        .btn {
+            width: 100%; padding: 15px; margin: 10px 0; border: none;
+            border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        .btn-track { background: #4ecdc4; color: black; }
+        .btn-track.recording { background: #ff6b6b; color: white; animation: blink 1.5s infinite; }
+        .btn-close { background: #555; color: white; margin-bottom: 20px; }
+        .btn-clear { background: transparent; color: #ff6b6b; border: 1px solid #ff6b6b; margin-top: 30px; }
+
+        .stats-card {
+            background: rgba(255,255,255,0.1); padding: 20px;
+            border-radius: 15px; margin-top: 20px;
         }
 
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
-    <div class="toggle-btn" onclick="toggleSidebar()">메뉴</div>
+    <button class="menu-toggle" onclick="toggleSidebar()">☰ 메뉴</button>
 
-    <div class="container">
-        <div class="sidebar" id="sidebar">
-            <h2 style="color: #4ecdc4; margin-bottom: 20px;">🗺️ 대동여지도 v2</h2>
-            <p style="font-size: 12px; margin-bottom: 15px; opacity: 0.8;">걸음마다 기록이 남고, 시간에 따라 색이 변합니다.</p>
-            
-            <button id="trackBtn" onclick="toggleTracking()">📍 추적 시작</button>
-            <button onclick="centerMap()">🎯 내 위치로</button>
-            
-            <div class="stats-box">
-                <p>거리: <span id="dist">0m</span></p>
-                <p>상태: <span id="status">대기 중</span></p>
-            </div>
-
-            <button onclick="clearData()" style="background: #555; color: white; margin-top: 20px;">🗑️ 기록 삭제</button>
+    <div class="sidebar" id="sidebar">
+        <button class="btn btn-close" onclick="toggleSidebar()">✕ 닫기</button>
+        <h2 style="color: #4ecdc4; margin-bottom: 5px;">📍 대동여지도 v2</h2>
+        <p style="font-size: 13px; opacity: 0.7; margin-bottom: 25px;">나의 발자취를 기록합니다.</p>
+        
+        <button id="trackBtn" class="btn btn-track" onclick="toggleTracking()">추적 시작</button>
+        
+        <div class="stats-card">
+            <p style="font-size: 14px; opacity: 0.8;">상태: <span id="status">대기 중</span></p>
+            <p style="font-size: 24px; font-weight: bold; margin-top: 5px;"><span id="dist">0</span>m 이동</p>
         </div>
-        <div id="map"></div>
+
+        <button class="btn btn-clear" onclick="clearPath()">기록 초기화</button>
     </div>
+
+    <div id="map"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     
     <script>
-        let map, userMarker, watchId = null;
+        let map, polyline, userMarker;
+        let pathPoints = []; 
         let isTracking = false;
-        let pathPoints = [];
-        let polyline;
+        let watchId = null;
 
         // 1. 지도 초기화
         function initMap() {
-            map = L.map('map', { zoomControl: false }).setView([37.5665, 126.9780], 15);
+            // 초기 위치: 서울 (데이터가 있으면 마지막 위치로 이동)
+            map = L.map('map', { zoomControl: false }).setView([37.5665, 126.9780], 16);
             
-            // 어두운 테마 지도 사용
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-            
-            // 저장된 데이터 불러오기
-            const savedPath = localStorage.getItem('myPath');
+            // 어두운 밤 모드 지도 레이어 (CartoDB Dark Matter)
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(map);
+
+            // 로컬 스토리지에서 저장된 경로 불러오기
+            const savedPath = localStorage.getItem('wayou_path');
             if (savedPath) {
                 pathPoints = JSON.parse(savedPath);
-                polyline = L.polyline(pathPoints, { color: '#4ecdc4', weight: 5 }).addTo(map);
+                polyline = L.polyline(pathPoints, { color: '#4ecdc4', weight: 5, opacity: 0.8 }).addTo(map);
                 if (pathPoints.length > 0) map.panTo(pathPoints[pathPoints.length - 1]);
             } else {
-                polyline = L.polyline([], { color: '#4ecdc4', weight: 5 }).addTo(map);
+                polyline = L.polyline([], { color: '#4ecdc4', weight: 5, opacity: 0.8 }).addTo(map);
             }
+            
+            updateStats();
         }
 
-        // 2. 추적 토글
+        // 2. 사이드바 토글
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+
+        // 3. GPS 추적 토글
         function toggleTracking() {
             const btn = document.getElementById('trackBtn');
+            const statusText = document.getElementById('status');
+
             if (!isTracking) {
                 if ("geolocation" in navigator) {
                     isTracking = true;
-                    btn.innerText = "⏹️ 추적 중지";
-                    btn.classList.add('tracking');
-                    document.getElementById('status').innerText = "기록 중...";
+                    btn.innerText = "추적 중지";
+                    btn.classList.add('recording');
+                    statusText.innerText = "기록 중...";
                     
-                    watchId = navigator.geolocation.watchPosition(successGPS, errorGPS, {
+                    watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, {
                         enableHighAccuracy: true,
                         maximumAge: 0
                     });
+                } else {
+                    alert("이 브라우저는 GPS를 지원하지 않습니다.");
                 }
             } else {
                 isTracking = false;
-                btn.innerText = "📍 추적 시작";
-                btn.classList.remove('tracking');
-                document.getElementById('status').innerText = "중지됨";
+                btn.innerText = "추적 시작";
+                btn.classList.remove('recording');
+                statusText.innerText = "중지됨";
                 navigator.geolocation.clearWatch(watchId);
             }
         }
 
-        // 3. GPS 성공 시
-        function successGPS(pos) {
+        // 4. 위치 갱신 성공 시 호출
+        function handleSuccess(pos) {
             const lat = pos.coords.latitude;
             const lng = pos.coords.longitude;
-            const newPoint = [lat, lng];
+            const currentPos = [lat, lng];
 
-            pathPoints.push(newPoint);
+            pathPoints.push(currentPos);
             polyline.setLatLngs(pathPoints);
             
-            // 내 위치 마커 업데이트
+            // 현재 위치 마커 업데이트
             if (!userMarker) {
-                userMarker = L.circleMarker(newPoint, { radius: 8, color: '#fff', fillColor: '#4ecdc4', fillOpacity: 1 }).addTo(map);
+                userMarker = L.circleMarker(currentPos, { radius: 7, color: '#fff', fillColor: '#4ecdc4', fillOpacity: 1 }).addTo(map);
             } else {
-                userMarker.setLatLng(newPoint);
+                userMarker.setLatLng(currentPos);
             }
 
-            map.panTo(newPoint);
+            map.panTo(currentPos);
             
-            // 로컬 저장소에 저장 (새로고침해도 유지)
-            localStorage.setItem('myPath', JSON.stringify(pathPoints));
-            document.getElementById('dist').innerText = (pathPoints.length * 5) + "m"; // 단순 계산
+            // 데이터 저장
+            localStorage.setItem('wayou_path', JSON.stringify(pathPoints));
+            updateStats();
         }
 
-        function errorGPS() { alert("GPS를 켤 수 없습니다."); }
-        function centerMap() { if (userMarker) map.panTo(userMarker.getLatLng()); }
-        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); }
-        function clearData() { if(confirm("모든 경로를 지울까요?")) { localStorage.removeItem('myPath'); location.reload(); } }
+        function handleError(err) {
+            console.warn(`ERROR(${err.code}): ${err.message}`);
+        }
+
+        function updateStats() {
+            // 좌표 개당 대략 5m로 계산 (단순 시연용)
+            document.getElementById('dist').innerText = pathPoints.length * 5;
+        }
+
+        function clearPath() {
+            if(confirm("정말로 모든 이동 기록을 지울까요?")) {
+                localStorage.removeItem('wayou_path');
+                location.reload();
+            }
+        }
 
         window.onload = initMap;
     </script>
