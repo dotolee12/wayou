@@ -3,124 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>wayou - 기억 저장 시스템</title>
+    <title>wayou - 기억 저장</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: sans-serif; background: #1a1a2e; color: white; overflow: hidden; }
         #map { height: 100vh; width: 100%; z-index: 1; }
 
-        .hamburger { position: fixed; top: 20px; left: 20px; z-index: 2000; cursor: pointer; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 8px; }
-        .hamburger .line { width: 30px; height: 4px; background: white; margin: 5px 0; border-radius: 2px; }
+        /* 민트색 버튼 삭제하고 그림 속 햄버거 버튼만 구현 */
+        .hamburger-icon {
+            position: fixed; top: 20px; left: 20px; z-index: 2000;
+            cursor: pointer; padding: 5px;
+        }
+        .hamburger-icon .line { width: 30px; height: 3px; background: white; margin: 6px 0; border-radius: 2px; }
 
-        .menu-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; background: rgba(0, 0, 0, 0.6); z-index: 3000; display: none; align-items: center; justify-content: center; }
+        /* 메뉴 오버레이 (바깥 누르면 닫힘) */
+        .menu-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: rgba(0, 0, 0, 0.6); z-index: 3000;
+            display: none; align-items: center; justify-content: center;
+        }
         .menu-overlay.active { display: flex; }
 
-        .menu-container { width: 85%; max-width: 320px; background: #ccc; padding: 15px 20px 25px 20px; border-radius: 15px; border: 3px solid #00aaff; position: relative; }
+        .menu-container {
+            width: 85%; max-width: 320px; background: #ccc; 
+            padding: 15px 20px 25px 20px; border-radius: 15px; 
+            border: 3px solid #00aaff; position: relative;
+        }
+
+        /* 메뉴 안 상단 ㅡ 버튼 */
         .close-handle { width: 60px; height: 6px; background: white; margin: 0 auto 20px auto; border-radius: 10px; cursor: pointer; }
 
-        .mem-btn { width: 100%; background: #ff4d4d; color: black; border: none; padding: 15px; margin: 8px 0; border-radius: 12px; font-size: 18px; font-weight: bold; display: flex; align-items: center; cursor: pointer; box-shadow: 0 4px 0 #cc3d3d; }
-        .mem-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #cc3d3d; }
+        /* 빨간색 버튼들 */
+        .mem-btn {
+            width: 100%; background: #ff4d4d; color: black; border: none;
+            padding: 15px; margin: 8px 0; border-radius: 12px;
+            font-size: 18px; font-weight: bold; display: flex; align-items: center; cursor: pointer;
+        }
         .dot { width: 22px; height: 22px; border-radius: 50%; margin-right: 15px; border: 2px solid rgba(0,0,0,0.2); }
 
-        .bottom-panel { position: fixed; bottom: 0; left: 0; width: 100%; height: 22vh; background: rgba(220, 220, 220, 0.95); color: black; padding: 25px 30px; z-index: 1500; border-top: 1px solid #999; }
-        .bottom-panel p { font-size: 19px; margin: 12px 0; font-weight: bold; }
+        /* 하단 정보창 */
+        .bottom-panel {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 20vh;
+            background: rgba(220, 220, 220, 0.9); color: black;
+            padding: 25px 30px; z-index: 1500;
+        }
+        .bottom-panel p { font-size: 19px; margin: 10px 0; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="hamburger" onclick="toggleMenu(event)">
+    <div class="hamburger-icon" onclick="toggleMenu(event)">
         <div class="line"></div><div class="line"></div><div class="line"></div>
     </div>
 
     <div class="menu-overlay" id="menuOverlay" onclick="toggleMenu(event)">
         <div class="menu-container" onclick="event.stopPropagation()">
             <div class="close-handle" onclick="toggleMenu(event)"></div>
-            <button class="mem-btn" onclick="centerMap()">
-                <div class="dot" style="background: yellow;"></div>현 위치로
-            </button>
-            <button class="mem-btn" onclick="startMemory('blue', '기억1')"><div class="dot" style="background: blue;"></div>기억1 시작</button>
-            <button class="mem-btn" onclick="startMemory('lime', '기억2')"><div class="dot" style="background: lime;"></div>기억2 시작</button>
-            <button class="mem-btn" onclick="startMemory('fuchsia', '기억3')"><div class="dot" style="background: fuchsia;"></div>기억3 시작</button>
+            <button class="mem-btn" onclick="centerMap()"><div class="dot" style="background: yellow;"></div>현 위치로</button>
+            <button class="mem-btn" onclick="startMemory('blue')"><div class="dot" style="background: blue;"></div>기억1 시작</button>
+            <button class="mem-btn" onclick="startMemory('lime')"><div class="dot" style="background: lime;"></div>기억2 시작</button>
+            <button class="mem-btn" onclick="startMemory('fuchsia')"><div class="dot" style="background: fuchsia;"></div>기억3 시작</button>
             <button class="mem-btn" onclick="stopTracking()" style="background: #555; color: white;">추적 중지</button>
         </div>
     </div>
 
     <div class="bottom-panel">
-        <p>오늘 걸은 거리 &nbsp; <span id="distText">0</span>km</p>
-        <p>기록 상태 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span id="statusText">대기 중</span></p>
+        <p>오늘 걸은 거리 &nbsp; <span id="dist">0</span>km</p>
+        <p>새로운 길 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span id="new">0</span>km</p>
     </div>
 
     <div id="map"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script>
-        let map;
-        let currentPath = []; 
-        let currentPolyline = null;
-        let watchId = null;
-        let currentColor = 'blue';
+        let map, pathPoints = [], watchId = null;
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([37.5665, 126.9780], 15);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-
-            // 저장된 모든 기억 불러오기
-            loadSavedMemories();
-        }
-
-        // 저장된 기억들을 지도에 다시 그리는 함수
-        function loadSavedMemories() {
-            const savedData = localStorage.getItem('wayou_memories');
-            if (savedData) {
-                const memories = JSON.parse(savedData);
-                memories.forEach(mem => {
-                    L.polyline(mem.points, { color: mem.color, weight: 5, opacity: 0.7 }).addTo(map);
+            
+            const saved = localStorage.getItem('wayou_memories');
+            if (saved) {
+                JSON.parse(saved).forEach(mem => {
+                    L.polyline(mem.points, { color: mem.color, weight: 5 }).addTo(map);
                 });
             }
         }
 
-        function startMemory(color, name) {
-            stopTracking(); // 기존 추적 중지
-            currentColor = color;
-            currentPath = [];
-            currentPolyline = L.polyline([], { color: color, weight: 6 }).addTo(map);
-            
-            document.getElementById('statusText').innerText = name + " 기록 중";
-            
+        function toggleMenu(e) { if(e) e.stopPropagation(); document.getElementById('menuOverlay').classList.toggle('active'); }
+
+        function startMemory(color) {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            const poly = L.polyline([], { color: color, weight: 6 }).addTo(map);
+            let sessionPoints = [];
+
             watchId = navigator.geolocation.watchPosition(pos => {
                 const pt = [pos.coords.latitude, pos.coords.longitude];
-                currentPath.push(pt);
-                currentPolyline.setLatLngs(currentPath);
+                sessionPoints.push(pt);
+                poly.setLatLngs(sessionPoints);
                 
-                // 실시간 저장
-                saveCurrentPoint(pt, color);
+                let allMemories = JSON.parse(localStorage.getItem('wayou_memories') || '[]');
+                if (sessionPoints.length === 1) allMemories.push({ color: color, points: [pt] });
+                else allMemories[allMemories.length - 1].points.push(pt);
+                localStorage.setItem('wayou_memories', JSON.stringify(allMemories));
             }, null, { enableHighAccuracy: true });
-
             toggleMenu();
         }
 
-        function saveCurrentPoint(pt, color) {
-            let savedData = JSON.parse(localStorage.getItem('wayou_memories') || '[]');
-            // 마지막 기억 세션에 포인트 추가하거나 새 세션 생성
-            if (savedData.length === 0 || isNewSession) {
-                savedData.push({ color: color, points: [pt] });
-                isNewSession = false;
-            } else {
-                savedData[savedData.length - 1].points.push(pt);
-            }
-            localStorage.setItem('wayou_memories', JSON.stringify(savedData));
-        }
+        function stopTracking() { if (watchId) navigator.geolocation.clearWatch(watchId); toggleMenu(); }
 
-        let isNewSession = true;
-        function stopTracking() {
-            if (watchId) navigator.geolocation.clearWatch(watchId);
-            isNewSession = true;
-            document.getElementById('statusText').innerText = "중지됨";
-        }
-
-        function toggleMenu(e) { if(e) e.stopPropagation(); document.getElementById('menuOverlay').classList.toggle('active'); }
-        
         function centerMap() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(pos => {
@@ -129,7 +121,6 @@
                 });
             }
         }
-
         window.onload = initMap;
     </script>
 </body>
