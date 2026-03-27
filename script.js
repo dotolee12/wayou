@@ -10,9 +10,12 @@ const SAVE_DELAY_MS = 800;
 const MERGE_DISTANCE_M = 6;
 const MERGE_TIME_GAP_MS = 2 * 60 * 1000;
 const MAX_PATH_POINTS = 5000;
-const FULL_VISIBILITY_DAYS = 0;
-const MIN_VISIBILITY_DAYS = 3;
+
+const FULL_VISIBILITY_HOURS = 0;
+const MIN_VISIBILITY_HOURS = 72;
 const MIN_PATH_VISIBILITY = 0.4;
+
+const THREE_DAYS_IN_DAYS = 3;
 const ONE_MONTH_DAYS = 30;
 const THREE_MONTHS_DAYS = 90;
 const SIX_MONTHS_DAYS = 180;
@@ -29,13 +32,13 @@ let playerMarker = null;
 let watchId = null;
 let saveTimer = null;
 let rafId = null;
-let memoryMarkers = new Map();
+const memoryMarkers = new Map();
 
 const recBtn = document.getElementById("rec-btn");
 const recStatusBox = document.getElementById("rec-status-box");
 
 const map = L.map("map", { zoomControl: false, attributionControl: false })
-    .setView([37.5665, 126.9780], 16);
+    .setView([37.5665, 126.978], 16);
 
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png").addTo(map);
 
@@ -52,10 +55,12 @@ const stayCtx = stayCanvas.getContext("2d");
 function resizeCanvas() {
     const width = window.innerWidth;
     const height = window.innerHeight;
+
     [fogCanvas, ageCanvas, stayCanvas].forEach((canvas) => {
         canvas.width = width;
         canvas.height = height;
     });
+
     scheduleRender();
 }
 
@@ -79,11 +84,13 @@ function render() {
 function renderFog() {
     const width = fogCanvas.width;
     const height = fogCanvas.height;
+
     fogCtx.clearRect(0, 0, width, height);
     if (!isFogEnabled) return;
 
     fogCtx.fillStyle = `rgba(8, 10, 18, ${FOG_ALPHA})`;
     fogCtx.fillRect(0, 0, width, height);
+
     if (pathCoordinates.length === 0) return;
 
     const now = Date.now();
@@ -91,8 +98,9 @@ function renderFog() {
     fogCtx.globalCompositeOperation = "destination-out";
 
     pathCoordinates.forEach((point, index) => {
-        const ageDays = (now - point.startTime) / 86400000;
-        fogCtx.globalAlpha = getPathVisibility(ageDays);
+        const ageHours = (now - point.startTime) / 3600000;
+        fogCtx.globalAlpha = getPathVisibility(ageHours);
+
         const pos = map.latLngToContainerPoint([point.lat, point.lng]);
         const radius = getMetersToPixels(FOG_RADIUS_M);
 
@@ -105,6 +113,7 @@ function renderFog() {
                 pathCoordinates[index - 1].lat,
                 pathCoordinates[index - 1].lng
             ]);
+
             fogCtx.beginPath();
             fogCtx.lineWidth = radius * 1.7;
             fogCtx.lineCap = "round";
@@ -114,29 +123,34 @@ function renderFog() {
             fogCtx.stroke();
         }
     });
+
     fogCtx.restore();
 }
 
-function getPathVisibility(ageDays) {
-    if (ageDays <= FULL_VISIBILITY_DAYS) return 1;
-    if (ageDays >= MIN_VISIBILITY_DAYS) return MIN_PATH_VISIBILITY;
-    const progress = ageDays / (MIN_VISIBILITY_DAYS - FULL_VISIBILITY_DAYS);
+function getPathVisibility(ageHours) {
+    if (ageHours <= FULL_VISIBILITY_HOURS) return 1;
+    if (ageHours >= MIN_VISIBILITY_HOURS) return MIN_PATH_VISIBILITY;
+
+    const progress = ageHours / MIN_VISIBILITY_HOURS;
     return 1 - (1 - MIN_PATH_VISIBILITY) * progress;
 }
 
 function renderAgeTint() {
     const width = ageCanvas.width;
     const height = ageCanvas.height;
+
     ageCtx.clearRect(0, 0, width, height);
     if (pathCoordinates.length === 0) return;
 
     const now = Date.now();
+
     ageCtx.save();
     ageCtx.beginPath();
 
     pathCoordinates.forEach((point, index) => {
         const pos = map.latLngToContainerPoint([point.lat, point.lng]);
         const radius = getMetersToPixels(FOG_RADIUS_M);
+
         ageCtx.moveTo(pos.x + radius, pos.y);
         ageCtx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
 
@@ -150,6 +164,7 @@ function renderAgeTint() {
             const len = Math.sqrt(dx * dx + dy * dy) || 1;
             const nx = -dy / len * radius * 0.85;
             const ny = dx / len * radius * 0.85;
+
             ageCtx.moveTo(prev.x + nx, prev.y + ny);
             ageCtx.lineTo(pos.x + nx, pos.y + ny);
             ageCtx.lineTo(pos.x - nx, pos.y - ny);
@@ -157,16 +172,20 @@ function renderAgeTint() {
             ageCtx.closePath();
         }
     });
+
     ageCtx.clip();
 
     pathCoordinates.forEach((point, index) => {
         const ageDays = (now - point.startTime) / 86400000;
         const color = getAgeColor(ageDays);
         if (!color) return;
+
         const pos = map.latLngToContainerPoint([point.lat, point.lng]);
         const radius = getMetersToPixels(FOG_RADIUS_M);
+
         ageCtx.fillStyle = color;
         ageCtx.strokeStyle = color;
+
         ageCtx.beginPath();
         ageCtx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
         ageCtx.fill();
@@ -176,6 +195,7 @@ function renderAgeTint() {
                 pathCoordinates[index - 1].lat,
                 pathCoordinates[index - 1].lng
             ]);
+
             ageCtx.beginPath();
             ageCtx.lineWidth = radius * 1.15;
             ageCtx.lineCap = "round";
@@ -185,79 +205,54 @@ function renderAgeTint() {
             ageCtx.stroke();
         }
     });
+
     ageCtx.restore();
+}
+
+function getAgeColor(ageDays) {
+    if (ageDays < THREE_DAYS_IN_DAYS) return null;
+    if (ageDays < ONE_MONTH_DAYS) return "rgba(173, 255, 120, 0.16)";
+    if (ageDays < THREE_MONTHS_DAYS) return "rgba(60, 170, 80, 0.18)";
+    if (ageDays < SIX_MONTHS_DAYS) return "rgba(214, 176, 55, 0.18)";
+    if (ageDays < ONE_YEAR_DAYS) return "rgba(130, 92, 55, 0.20)";
+    return SEDIMENT_LAYER_COLOR;
 }
 
 function renderStayTint() {
     const width = stayCanvas.width;
     const height = stayCanvas.height;
+
     stayCtx.clearRect(0, 0, width, height);
     if (pathCoordinates.length === 0) return;
 
     stayCtx.save();
-    stayCtx.beginPath();
-
-    pathCoordinates.forEach((point, index) => {
-        const pos = map.latLngToContainerPoint([point.lat, point.lng]);
-        const radius = getMetersToPixels(FOG_RADIUS_M);
-        stayCtx.moveTo(pos.x + radius, pos.y);
-        stayCtx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
-
-        if (index > 0) {
-            const prev = map.latLngToContainerPoint([
-                pathCoordinates[index - 1].lat,
-                pathCoordinates[index - 1].lng
-            ]);
-            const dx = pos.x - prev.x;
-            const dy = pos.y - prev.y;
-            const len = Math.sqrt(dx * dx + dy * dy) || 1;
-            const nx = -dy / len * radius * 0.85;
-            const ny = dx / len * radius * 0.85;
-            stayCtx.moveTo(prev.x + nx, prev.y + ny);
-            stayCtx.lineTo(pos.x + nx, pos.y + ny);
-            stayCtx.lineTo(pos.x - nx, pos.y - ny);
-            stayCtx.lineTo(prev.x - nx, prev.y - ny);
-            stayCtx.closePath();
-        }
-    });
-    stayCtx.clip();
+    stayCtx.globalCompositeOperation = "destination-out";
 
     pathCoordinates.forEach((point) => {
         const stayMin = (point.endTime - point.startTime) / 60000;
-        const color = getStayColor(stayMin);
-        if (!color) return;
         const pos = map.latLngToContainerPoint([point.lat, point.lng]);
         const radius = getMetersToPixels(getStayRadiusMeters(stayMin));
+
         const grad = stayCtx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, radius);
-        grad.addColorStop(0, color.center);
-        grad.addColorStop(0.65, color.mid);
-        grad.addColorStop(1, color.edge);
+        grad.addColorStop(0, "rgba(0, 0, 0, 0.6)");
+        grad.addColorStop(0.6, "rgba(0, 0, 0, 0.3)");
+        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+
         stayCtx.beginPath();
         stayCtx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
         stayCtx.fillStyle = grad;
         stayCtx.fill();
     });
+
     stayCtx.restore();
 }
 
-function getAgeColor(ageDays) {
-    if (ageDays < MIN_VISIBILITY_DAYS)   return null;
-    if (ageDays < ONE_MONTH_DAYS)        return "rgba(173, 255, 120, 0.16)";
-    if (ageDays < THREE_MONTHS_DAYS)     return "rgba(60, 170, 80, 0.18)";
-    if (ageDays < SIX_MONTHS_DAYS)       return "rgba(214, 176, 55, 0.18)";
-    if (ageDays < ONE_YEAR_DAYS)         return "rgba(130, 92, 55, 0.20)";
-    return SEDIMENT_LAYER_COLOR;
-}
-
-function getStayColor(stayMin) {
-    return null;
-}
-
 function getStayRadiusMeters(stayMin) {
-    if (stayMin < 30) return FOG_RADIUS_M;
-    if (stayMin >= 180) return FOG_RADIUS_M * 1.5;
-    const progress = (stayMin - 30) / (180 - 30);
-    const scale = 1.2 + (1.5 - 1.2) * progress;
+    if (stayMin <= 0) return FOG_RADIUS_M;
+    if (stayMin >= 180) return FOG_RADIUS_M * 2;
+
+    const progress = stayMin / 180;
+    const scale = 1 + progress;
     return FOG_RADIUS_M * scale;
 }
 
@@ -265,8 +260,8 @@ function getMetersToPixels(meters) {
     const center = map.getCenter();
     const pt = map.latLngToContainerPoint(center);
     const ll2 = map.containerPointToLatLng(L.point(pt.x + 10, pt.y));
-    const mpp = center.distanceTo(ll2);
-    return mpp ? (meters / mpp) * 10 : 1;
+    const metersPerPixels = center.distanceTo(ll2);
+    return metersPerPixels ? (meters / metersPerPixels) * 10 : 1;
 }
 
 function syncRecordingUI() {
@@ -278,6 +273,7 @@ function syncRecordingUI() {
 function syncFogButton() {
     const fogBtn = document.getElementById("fog-btn");
     if (!fogBtn) return;
+
     fogBtn.classList.toggle("off", !isFogEnabled);
     fogBtn.textContent = isFogEnabled ? "☁" : "☀";
     fogBtn.title = isFogEnabled ? "어둠 끄기" : "어둠 켜기";
@@ -298,6 +294,7 @@ function toggleRecording() {
         scheduleSave();
         return;
     }
+
     isRecording = true;
     syncRecordingUI();
     startTracking();
@@ -316,6 +313,7 @@ function startTracking() {
         resetRecordingState();
         return;
     }
+
     if (!window.isSecureContext &&
         location.hostname !== "localhost" &&
         location.hostname !== "127.0.0.1") {
@@ -323,6 +321,7 @@ function startTracking() {
         resetRecordingState();
         return;
     }
+
     watchId = navigator.geolocation.watchPosition(
         handlePosition,
         handleLocationError,
@@ -359,6 +358,7 @@ function handlePosition(position) {
     }
 
     recStatusBox.textContent = "기록 중";
+
     const now = Date.now();
 
     if (pathCoordinates.length === 0) {
@@ -376,13 +376,16 @@ function handlePosition(position) {
     if (dist <= stayThreshold) {
         last.endTime = now;
         last.visits = (last.visits || 1) + 1;
+
         const smoothFactor = 0.12;
         last.lat = last.lat + (latlng.lat - last.lat) * smoothFactor;
         last.lng = last.lng + (latlng.lng - last.lng) * smoothFactor;
     } else {
         totalDistance += dist;
         pathCoordinates.push(createPathPoint(latlng, now));
-        if (pathCoordinates.length > MAX_PATH_POINTS) compactPathData();
+        if (pathCoordinates.length > MAX_PATH_POINTS) {
+            compactPathData();
+        }
     }
 
     updateStats();
@@ -400,7 +403,13 @@ function handleLocationError(err) {
 }
 
 function createPathPoint(latlng, timestamp) {
-    return { lat: latlng.lat, lng: latlng.lng, startTime: timestamp, endTime: timestamp, visits: 1 };
+    return {
+        lat: latlng.lat,
+        lng: latlng.lng,
+        startTime: timestamp,
+        endTime: timestamp,
+        visits: 1
+    };
 }
 
 function distanceToPoint(latlng, point) {
@@ -408,48 +417,67 @@ function distanceToPoint(latlng, point) {
 }
 
 function getDynamicStayThreshold(accuracy) {
-    return Math.max(MIN_MOVE_M, Math.min(MAX_STAY_RADIUS_M, accuracy * STAY_ACCURACY_FACTOR));
+    return Math.max(
+        MIN_MOVE_M,
+        Math.min(MAX_STAY_RADIUS_M, accuracy * STAY_ACCURACY_FACTOR)
+    );
 }
 
 function compactPathData() {
     if (pathCoordinates.length <= 1) return;
+
     const merged = [];
     for (const point of pathCoordinates) {
         const last = merged[merged.length - 1];
-        if (!last) { merged.push({ ...point }); continue; }
+        if (!last) {
+            merged.push({ ...point });
+            continue;
+        }
+
         const timeGap = point.startTime - last.endTime;
         const dist = L.latLng(point.lat, point.lng).distanceTo([last.lat, last.lng]);
+
         if (dist <= MERGE_DISTANCE_M && timeGap <= MERGE_TIME_GAP_MS) {
-            const tv = (last.visits || 1) + (point.visits || 1);
-            last.lat = ((last.lat * (last.visits || 1)) + (point.lat * (point.visits || 1))) / tv;
-            last.lng = ((last.lng * (last.visits || 1)) + (point.lng * (point.visits || 1))) / tv;
+            const totalVisits = (last.visits || 1) + (point.visits || 1);
+            last.lat = ((last.lat * (last.visits || 1)) + (point.lat * (point.visits || 1))) / totalVisits;
+            last.lng = ((last.lng * (last.visits || 1)) + (point.lng * (point.visits || 1))) / totalVisits;
             last.endTime = Math.max(last.endTime, point.endTime);
-            last.visits = tv;
+            last.visits = totalVisits;
         } else {
             merged.push({ ...point });
         }
     }
+
     pathCoordinates = shrinkOldPoints(merged, MAX_PATH_POINTS);
 }
 
 function shrinkOldPoints(points, maxPoints) {
     if (points.length <= maxPoints) return points;
+
     const keepTail = Math.floor(maxPoints * 0.4);
     const tail = points.slice(-keepTail);
     const head = points.slice(0, points.length - keepTail);
     const ratio = Math.ceil(head.length / (maxPoints - keepTail));
-    return [...head.filter((_, i) => i % ratio === 0), ...tail].slice(-maxPoints);
+    const reducedHead = head.filter((_, index) => index % ratio === 0);
+
+    return [...reducedHead, ...tail].slice(-maxPoints);
 }
 
 function updateStats() {
-    document.getElementById("dist-val").innerHTML = (totalDistance / 1000).toFixed(2) + "<span>km</span>";
+    document.getElementById("dist-val").innerHTML =
+        `${(totalDistance / 1000).toFixed(2)}<span>km</span>`;
     document.getElementById("memo-val").innerText = memories.length;
 }
 
 function addMemory() {
-    if (!currentPos) { alert("위치 정보를 수신 중입니다."); return; }
+    if (!currentPos) {
+        alert("위치 정보를 수신 중입니다.");
+        return;
+    }
+
     const input = prompt("이 장소의 이름을 입력하세요:", "새로운 발견");
     if (input === null) return;
+
     const now = new Date();
     const data = {
         id: String(now.getTime()),
@@ -457,9 +485,17 @@ function addMemory() {
         lng: currentPos.lng,
         name: escapeHtml(input.trim() || "기억의 지점"),
         time: now.getTime(),
-        dateString: now.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }),
-        timeString: now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+        dateString: now.toLocaleDateString("ko-KR", {
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+        }),
+        timeString: now.toLocaleTimeString("ko-KR", {
+            hour: "2-digit",
+            minute: "2-digit"
+        })
     };
+
     memories.push(data);
     createMemoryMarker(data, true);
     updateMemoryList();
@@ -472,19 +508,26 @@ function createMemoryMarker(data, openPopup = false) {
         pane: "memoryPane",
         icon: L.divIcon({ className: "memory-marker", html: "★", iconSize: [28, 28] })
     }).addTo(map);
+
     marker.bindPopup(
         "<b>" + data.name + "</b><br>" +
         "<small>" + data.dateString + " " + (data.timeString || "") + "</small><br>" +
         '<button onclick="deleteMemory(\'' + data.id + '\')" class="popup-delete-btn">삭제</button>'
     );
+
     memoryMarkers.set(data.id, marker);
     if (openPopup) marker.openPopup();
 }
 
 function deleteMemory(id) {
-    memories = memories.filter((m) => m.id !== id);
+    memories = memories.filter((memory) => memory.id !== id);
+
     const marker = memoryMarkers.get(id);
-    if (marker) { map.removeLayer(marker); memoryMarkers.delete(id); }
+    if (marker) {
+        map.removeLayer(marker);
+        memoryMarkers.delete(id);
+    }
+
     updateMemoryList();
     updateStats();
     scheduleSave();
@@ -492,22 +535,31 @@ function deleteMemory(id) {
 
 function updateMemoryList() {
     const container = document.getElementById("memory-list-container");
+    if (!container) return;
+
     if (memories.length === 0) {
         container.innerHTML = '<p class="empty-message">아직 기록이 없습니다.</p>';
         return;
     }
+
     container.innerHTML = "";
+
     [...memories].reverse().forEach((memo) => {
         const item = document.createElement("div");
         item.className = "memory-item";
         item.innerHTML =
-            '<span class="item-name">★ ' + memo.name + '</span>' +
-            '<span class="item-date">' + memo.dateString + " " + (memo.timeString || "") + '</span>' +
+            '<span class="item-name">★ ' + memo.name + "</span>" +
+            '<span class="item-date">' + memo.dateString + " " + (memo.timeString || "") + "</span>" +
             '<div class="memory-actions">' +
-            '<button onclick="event.stopPropagation(); map.flyTo([' + memo.lat + ',' + memo.lng + '], 17);" class="memory-action-btn move">이동</button>' +
+            '<button onclick="event.stopPropagation(); map.flyTo([' + memo.lat + "," + memo.lng + '], 17);" class="memory-action-btn move">이동</button>' +
             '<button onclick="event.stopPropagation(); deleteMemory(\'' + memo.id + '\')" class="memory-action-btn delete">삭제</button>' +
-            '</div>';
-        item.onclick = () => { map.flyTo([memo.lat, memo.lng], 17); toggleSidebar(false); };
+            "</div>";
+
+        item.onclick = () => {
+            map.flyTo([memo.lat, memo.lng], 17);
+            toggleSidebar(false);
+        };
+
         container.appendChild(item);
     });
 }
@@ -515,7 +567,12 @@ function updateMemoryList() {
 function toggleSidebar(forceOpen) {
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebar-overlay");
-    const willOpen = typeof forceOpen === "boolean" ? forceOpen : !sidebar.classList.contains("open");
+    if (!sidebar || !overlay) return;
+
+    const willOpen = typeof forceOpen === "boolean"
+        ? forceOpen
+        : !sidebar.classList.contains("open");
+
     sidebar.classList.toggle("open", willOpen);
     overlay.classList.toggle("show", willOpen);
 }
@@ -526,66 +583,113 @@ function centerMap() {
 
 function scheduleSave() {
     if (saveTimer !== null) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => { saveTimer = null; compactPathData(); persistState(); }, SAVE_DELAY_MS);
+    saveTimer = setTimeout(() => {
+        saveTimer = null;
+        compactPathData();
+        persistState();
+    }, SAVE_DELAY_MS);
 }
 
 function persistState() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            pathCoordinates: pathCoordinates.map((p) => ({
-                lat: p.lat, lng: p.lng, startTime: p.startTime, endTime: p.endTime, visits: p.visits || 1
+        const data = {
+            pathCoordinates: pathCoordinates.map((point) => ({
+                lat: point.lat,
+                lng: point.lng,
+                startTime: point.startTime,
+                endTime: point.endTime,
+                visits: point.visits || 1
             })),
-            memories: memories.map((m) => ({
-                id: m.id, lat: m.lat, lng: m.lng, name: m.name,
-                time: m.time, dateString: m.dateString, timeString: m.timeString
+            memories: memories.map((memory) => ({
+                id: memory.id,
+                lat: memory.lat,
+                lng: memory.lng,
+                name: memory.name,
+                time: memory.time,
+                dateString: memory.dateString,
+                timeString: memory.timeString
             })),
             totalDistance
-        }));
-    } catch (e) { console.error("저장 실패", e); }
+        };
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+        console.error("저장 실패", error);
+    }
 }
 
 function loadState() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return;
+
         const saved = JSON.parse(raw);
 
         if (Array.isArray(saved.pathCoordinates)) {
             pathCoordinates = saved.pathCoordinates
-                .filter((p) => isFinite(p.lat) && isFinite(p.lng) && isFinite(p.startTime) && isFinite(p.endTime))
-                .map((p) => ({ lat: p.lat, lng: p.lng, startTime: p.startTime, endTime: p.endTime, visits: isFinite(p.visits) ? p.visits : 1 }));
+                .filter((point) =>
+                    isFinite(point.lat) &&
+                    isFinite(point.lng) &&
+                    isFinite(point.startTime) &&
+                    isFinite(point.endTime)
+                )
+                .map((point) => ({
+                    lat: point.lat,
+                    lng: point.lng,
+                    startTime: point.startTime,
+                    endTime: point.endTime,
+                    visits: isFinite(point.visits) ? point.visits : 1
+                }));
         }
 
         if (Array.isArray(saved.memories)) {
             memories = saved.memories
-                .filter((m) => isFinite(m.lat) && isFinite(m.lng) && typeof m.name === "string")
-                .map((m) => ({
-                    id: typeof m.id === "string" ? m.id : String(m.time),
-                    lat: m.lat, lng: m.lng, name: m.name, time: m.time,
-                    dateString: m.dateString,
-                    timeString: typeof m.timeString === "string"
-                        ? m.timeString
-                        : new Date(m.time).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+                .filter((memory) =>
+                    isFinite(memory.lat) &&
+                    isFinite(memory.lng) &&
+                    typeof memory.name === "string"
+                )
+                .map((memory) => ({
+                    id: typeof memory.id === "string" ? memory.id : String(memory.time),
+                    lat: memory.lat,
+                    lng: memory.lng,
+                    name: memory.name,
+                    time: memory.time,
+                    dateString: memory.dateString,
+                    timeString: typeof memory.timeString === "string"
+                        ? memory.timeString
+                        : new Date(memory.time).toLocaleTimeString("ko-KR", {
+                            hour: "2-digit",
+                            minute: "2-digit"
+                        })
                 }));
         }
 
-        if (isFinite(saved.totalDistance)) totalDistance = saved.totalDistance;
+        if (isFinite(saved.totalDistance)) {
+            totalDistance = saved.totalDistance;
+        }
 
-        const savedFog = localStorage.getItem(FOG_ENABLED_KEY);
-        if (savedFog !== null) isFogEnabled = savedFog === "true";
+        const savedFogEnabled = localStorage.getItem(FOG_ENABLED_KEY);
+        if (savedFogEnabled !== null) {
+            isFogEnabled = savedFogEnabled === "true";
+        }
 
         compactPathData();
-    } catch (e) { console.error("복원 실패", e); }
+    } catch (error) {
+        console.error("복원 실패", error);
+    }
 }
 
 function renderStoredMarkers() {
-    memories.forEach((m) => createMemoryMarker(m, false));
+    memories.forEach((memory) => createMemoryMarker(memory, false));
 }
 
 function escapeHtml(value) {
     return String(value)
-        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 }
 
