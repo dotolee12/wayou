@@ -57,10 +57,14 @@ const stayCtx = stayCanvas.getContext("2d");
 function resizeCanvas() {
     const width = window.innerWidth;
     const height = window.innerHeight;
+
     [fogCanvas, ageCanvas, stayCanvas].forEach((canvas) => {
         canvas.width = width;
         canvas.height = height;
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
     });
+
     scheduleRender();
 }
 
