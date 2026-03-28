@@ -14,6 +14,18 @@
         <h2>나의 기록들</h2>
         <span onclick="toggleSidebar(false)" class="close-btn">✕</span>
     </div>
+    <div id="fog-toggle-wrap">
+        <div class="fog-toggle-row" onclick="toggleFog()">
+            <span class="fog-toggle-label">어둠 효과</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span id="fog-toggle-state" class="fog-toggle-state on">켜짐</span>
+                <div id="fog-toggle-btn" class="toggle-switch on">
+                    <div class="toggle-knob"></div>
+                </div>
+            </div>
+        </div>
+        <div class="sidebar-divider"></div>
+    </div>
     <div id="memory-list-container">
         <p class="empty-message">아직 기록이 없습니다.</p>
     </div>
@@ -39,7 +51,6 @@
         <div class="icon-rec"></div>
         <div class="icon-stop"></div>
     </div>
-    <div id="fog-btn" class="btn" onclick="toggleFog()" title="어둠 끄기">☁</div>
     <div id="memo-btn" class="btn" onclick="addMemory()">★</div>
     <div id="loc-btn" class="btn" onclick="centerMap()">
         <div class="icon-loc"></div>
@@ -86,6 +97,7 @@
     </div>
 </div>
 
+<input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./script.js"></script>
 </body>
