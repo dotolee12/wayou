@@ -15,19 +15,15 @@ html, body {
 #age-canvas,
 #stay-canvas {
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-}
-#fog-canvas,
-#age-canvas,
-#stay-canvas {
-    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     pointer-events: none;
 }
+#fog-canvas  { z-index: 400; }
+#age-canvas  { z-index: 401; }
+#stay-canvas { z-index: 402; }
 
 /* 상단 바 */
 #top-bar {
