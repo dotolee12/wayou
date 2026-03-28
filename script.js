@@ -57,14 +57,14 @@ const stayCtx = stayCanvas.getContext("2d");
 function resizeCanvas() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-
     [fogCanvas, ageCanvas, stayCanvas].forEach((canvas) => {
         canvas.width = width;
         canvas.height = height;
         canvas.style.width = width + "px";
         canvas.style.height = height + "px";
+        canvas.style.top = "0";
+        canvas.style.left = "0";
     });
-
     scheduleRender();
 }
 
@@ -664,5 +664,14 @@ updateStats();
 updateMemoryList();
 syncRecordingUI();
 syncFogButton();
-resizeCanvas();
-scheduleRender();
+
+function init() {
+    resizeCanvas();
+    scheduleRender();
+}
+
+if (document.readyState === "complete") {
+    init();
+} else {
+    window.addEventListener("load", init);
+}
