@@ -2,8 +2,8 @@ const STORAGE_KEY = "giloa-v7";
 const FOG_ENABLED_KEY = "giloa-fog-enabled";
 const FOG_ALPHA = 0.8;
 const FOG_RADIUS_M = 18;
-const MIN_MOVE_M = 8;
-const MAX_ACCURACY_M = 45;
+const MIN_MOVE_M = 15;
+const MAX_ACCURACY_M = 30;
 const STAY_ACCURACY_FACTOR = 0.6;
 const MAX_STAY_RADIUS_M = 18;
 const SAVE_DELAY_MS = 800;
@@ -257,9 +257,9 @@ function renderStayTint() {
 
 function getStayRadiusMeters(stayMin) {
     if (stayMin < 10) return FOG_RADIUS_M;
-    if (stayMin >= 180) return FOG_RADIUS_M * 1.5;
+    if (stayMin >= 180) return FOG_RADIUS_M * 2.0;
     const progress = (stayMin - 10) / (180 - 10);
-    const scale = 1.0 + (1.5 - 1.0) * progress;
+    const scale = 1.0 + (2.0 - 1.0) * progress;
     return FOG_RADIUS_M * scale;
 }
 
