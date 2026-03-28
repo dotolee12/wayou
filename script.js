@@ -12,7 +12,7 @@ const MERGE_TIME_GAP_MS = 2 * 60 * 1000;
 const MAX_PATH_POINTS = 5000;
 
 const FULL_VISIBILITY_HOURS = 0;
-const MIN_VISIBILITY_HOURS = 72;
+const MIN_VISIBILITY_HOURS = 24;
 const MIN_PATH_VISIBILITY = 0.4;
 
 const THREE_DAYS_IN_DAYS = 3;
@@ -24,10 +24,12 @@ const SEDIMENT_LAYER_COLOR = "rgba(126, 112, 96, 0.24)";
 
 let isRecording = false;
 let isFogEnabled = true;
+let isHudExpanded = false;
 let currentPos = null;
 let pathCoordinates = [];
 let memories = [];
 let totalDistance = 0;
+let todayDistance = 0;
 let playerMarker = null;
 let watchId = null;
 let saveTimer = null;
@@ -55,12 +57,10 @@ const stayCtx = stayCanvas.getContext("2d");
 function resizeCanvas() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-
     [fogCanvas, ageCanvas, stayCanvas].forEach((canvas) => {
         canvas.width = width;
         canvas.height = height;
     });
-
     scheduleRender();
 }
 
@@ -81,6 +81,7 @@ function render() {
     renderStayTint();
 }
 
+// --- 안개 레이어 ---
 function renderFog() {
     const width = fogCanvas.width;
     const height = fogCanvas.height;
@@ -113,7 +114,6 @@ function renderFog() {
                 pathCoordinates[index - 1].lat,
                 pathCoordinates[index - 1].lng
             ]);
-
             fogCtx.beginPath();
             fogCtx.lineWidth = radius * 1.7;
             fogCtx.lineCap = "round";
@@ -130,11 +130,11 @@ function renderFog() {
 function getPathVisibility(ageHours) {
     if (ageHours <= FULL_VISIBILITY_HOURS) return 1;
     if (ageHours >= MIN_VISIBILITY_HOURS) return MIN_PATH_VISIBILITY;
-
     const progress = ageHours / MIN_VISIBILITY_HOURS;
     return 1 - (1 - MIN_PATH_VISIBILITY) * progress;
 }
 
+// --- age 경과 일수 레이어 ---
 function renderAgeTint() {
     const width = ageCanvas.width;
     const height = ageCanvas.height;
@@ -195,7 +195,6 @@ function renderAgeTint() {
                 pathCoordinates[index - 1].lat,
                 pathCoordinates[index - 1].lng
             ]);
-
             ageCtx.beginPath();
             ageCtx.lineWidth = radius * 1.15;
             ageCtx.lineCap = "round";
@@ -211,13 +210,14 @@ function renderAgeTint() {
 
 function getAgeColor(ageDays) {
     if (ageDays < THREE_DAYS_IN_DAYS) return null;
-    if (ageDays < ONE_MONTH_DAYS) return "rgba(173, 255, 120, 0.16)";
-    if (ageDays < THREE_MONTHS_DAYS) return "rgba(60, 170, 80, 0.18)";
-    if (ageDays < SIX_MONTHS_DAYS) return "rgba(214, 176, 55, 0.18)";
-    if (ageDays < ONE_YEAR_DAYS) return "rgba(130, 92, 55, 0.20)";
+    if (ageDays < ONE_MONTH_DAYS)     return "rgba(173, 255, 120, 0.16)";
+    if (ageDays < THREE_MONTHS_DAYS)  return "rgba(60, 170, 80, 0.18)";
+    if (ageDays < SIX_MONTHS_DAYS)    return "rgba(214, 176, 55, 0.18)";
+    if (ageDays < ONE_YEAR_DAYS)      return "rgba(130, 92, 55, 0.20)";
     return SEDIMENT_LAYER_COLOR;
 }
 
+// --- stay 머문 시간 레이어 ---
 function renderStayTint() {
     const width = stayCanvas.width;
     const height = stayCanvas.height;
@@ -230,13 +230,15 @@ function renderStayTint() {
 
     pathCoordinates.forEach((point) => {
         const stayMin = (point.endTime - point.startTime) / 60000;
+        if (stayMin < 10) return;
+
         const pos = map.latLngToContainerPoint([point.lat, point.lng]);
         const radius = getMetersToPixels(getStayRadiusMeters(stayMin));
 
         const grad = stayCtx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, radius);
-        grad.addColorStop(0, "rgba(0, 0, 0, 0.6)");
+        grad.addColorStop(0,   "rgba(0, 0, 0, 0.6)");
         grad.addColorStop(0.6, "rgba(0, 0, 0, 0.3)");
-        grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+        grad.addColorStop(1,   "rgba(0, 0, 0, 0)");
 
         stayCtx.beginPath();
         stayCtx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
@@ -248,11 +250,10 @@ function renderStayTint() {
 }
 
 function getStayRadiusMeters(stayMin) {
-    if (stayMin <= 0) return FOG_RADIUS_M;
-    if (stayMin >= 180) return FOG_RADIUS_M * 2;
-
-    const progress = stayMin / 180;
-    const scale = 1 + progress;
+    if (stayMin < 10) return FOG_RADIUS_M;
+    if (stayMin >= 180) return FOG_RADIUS_M * 1.5;
+    const progress = (stayMin - 10) / (180 - 10);
+    const scale = 1.0 + (1.5 - 1.0) * progress;
     return FOG_RADIUS_M * scale;
 }
 
@@ -260,10 +261,23 @@ function getMetersToPixels(meters) {
     const center = map.getCenter();
     const pt = map.latLngToContainerPoint(center);
     const ll2 = map.containerPointToLatLng(L.point(pt.x + 10, pt.y));
-    const metersPerPixels = center.distanceTo(ll2);
-    return metersPerPixels ? (meters / metersPerPixels) * 10 : 1;
+    const mpp = center.distanceTo(ll2);
+    return mpp ? (meters / mpp) * 10 : 1;
 }
 
+// --- HUD 펼침/닫힘 ---
+function toggleHud() {
+    isHudExpanded = !isHudExpanded;
+    const hud = document.getElementById("hud");
+    const controls = document.getElementById("controls");
+    const helpBtn = document.getElementById("help-btn");
+
+    hud.classList.toggle("expanded", isHudExpanded);
+    controls.classList.toggle("hud-open", isHudExpanded);
+    helpBtn.classList.toggle("hud-open", isHudExpanded);
+}
+
+// --- UI 제어 ---
 function syncRecordingUI() {
     recBtn.classList.toggle("recording", isRecording);
     recStatusBox.textContent = isRecording ? "기록 중" : "대기 중";
@@ -273,10 +287,13 @@ function syncRecordingUI() {
 function syncFogButton() {
     const fogBtn = document.getElementById("fog-btn");
     if (!fogBtn) return;
-
     fogBtn.classList.toggle("off", !isFogEnabled);
     fogBtn.textContent = isFogEnabled ? "☁" : "☀";
     fogBtn.title = isFogEnabled ? "어둠 끄기" : "어둠 켜기";
+}
+
+function toggleHelp() {
+    document.getElementById("help-popup").classList.toggle("show");
 }
 
 function resetRecordingState() {
@@ -294,7 +311,6 @@ function toggleRecording() {
         scheduleSave();
         return;
     }
-
     isRecording = true;
     syncRecordingUI();
     startTracking();
@@ -313,7 +329,6 @@ function startTracking() {
         resetRecordingState();
         return;
     }
-
     if (!window.isSecureContext &&
         location.hostname !== "localhost" &&
         location.hostname !== "127.0.0.1") {
@@ -321,7 +336,6 @@ function startTracking() {
         resetRecordingState();
         return;
     }
-
     watchId = navigator.geolocation.watchPosition(
         handlePosition,
         handleLocationError,
@@ -336,6 +350,7 @@ function stopTracking() {
     }
 }
 
+// --- GPS 처리 ---
 function handlePosition(position) {
     const accuracy = Number(position.coords.accuracy) || Infinity;
     const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
@@ -358,7 +373,6 @@ function handlePosition(position) {
     }
 
     recStatusBox.textContent = "기록 중";
-
     const now = Date.now();
 
     if (pathCoordinates.length === 0) {
@@ -376,16 +390,14 @@ function handlePosition(position) {
     if (dist <= stayThreshold) {
         last.endTime = now;
         last.visits = (last.visits || 1) + 1;
-
         const smoothFactor = 0.12;
         last.lat = last.lat + (latlng.lat - last.lat) * smoothFactor;
         last.lng = last.lng + (latlng.lng - last.lng) * smoothFactor;
     } else {
         totalDistance += dist;
+        todayDistance += dist;
         pathCoordinates.push(createPathPoint(latlng, now));
-        if (pathCoordinates.length > MAX_PATH_POINTS) {
-            compactPathData();
-        }
+        if (pathCoordinates.length > MAX_PATH_POINTS) compactPathData();
     }
 
     updateStats();
@@ -403,13 +415,7 @@ function handleLocationError(err) {
 }
 
 function createPathPoint(latlng, timestamp) {
-    return {
-        lat: latlng.lat,
-        lng: latlng.lng,
-        startTime: timestamp,
-        endTime: timestamp,
-        visits: 1
-    };
+    return { lat: latlng.lat, lng: latlng.lng, startTime: timestamp, endTime: timestamp, visits: 1 };
 }
 
 function distanceToPoint(latlng, point) {
@@ -417,64 +423,75 @@ function distanceToPoint(latlng, point) {
 }
 
 function getDynamicStayThreshold(accuracy) {
-    return Math.max(
-        MIN_MOVE_M,
-        Math.min(MAX_STAY_RADIUS_M, accuracy * STAY_ACCURACY_FACTOR)
-    );
+    return Math.max(MIN_MOVE_M, Math.min(MAX_STAY_RADIUS_M, accuracy * STAY_ACCURACY_FACTOR));
 }
 
+// 오늘 이동 거리 계산 (자정 기준)
+function calcTodayDistance() {
+    const now = Date.now();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+
+    let dist = 0;
+    for (let i = 1; i < pathCoordinates.length; i++) {
+        const p = pathCoordinates[i];
+        if (p.startTime >= todayStartMs) {
+            const prev = pathCoordinates[i - 1];
+            dist += L.latLng(p.lat, p.lng).distanceTo([prev.lat, prev.lng]);
+        }
+    }
+    return dist;
+}
+
+// --- 통계 업데이트 ---
+function updateStats() {
+    document.getElementById("dist-val").innerHTML =
+        `${(totalDistance / 1000).toFixed(2)}<span>km</span>`;
+    document.getElementById("memo-val").innerText = memories.length;
+
+    // 확장 HUD
+    const today = calcTodayDistance();
+    document.getElementById("today-dist-val").innerHTML =
+        `${(today / 1000).toFixed(2)}<span>km</span>`;
+    document.getElementById("memory-count-val").innerHTML =
+        `${memories.length}<span>개</span>`;
+}
+
+// --- 경로 압축 ---
 function compactPathData() {
     if (pathCoordinates.length <= 1) return;
-
     const merged = [];
     for (const point of pathCoordinates) {
         const last = merged[merged.length - 1];
-        if (!last) {
-            merged.push({ ...point });
-            continue;
-        }
-
+        if (!last) { merged.push({ ...point }); continue; }
         const timeGap = point.startTime - last.endTime;
         const dist = L.latLng(point.lat, point.lng).distanceTo([last.lat, last.lng]);
-
         if (dist <= MERGE_DISTANCE_M && timeGap <= MERGE_TIME_GAP_MS) {
-            const totalVisits = (last.visits || 1) + (point.visits || 1);
-            last.lat = ((last.lat * (last.visits || 1)) + (point.lat * (point.visits || 1))) / totalVisits;
-            last.lng = ((last.lng * (last.visits || 1)) + (point.lng * (point.visits || 1))) / totalVisits;
+            const tv = (last.visits || 1) + (point.visits || 1);
+            last.lat = ((last.lat * (last.visits || 1)) + (point.lat * (point.visits || 1))) / tv;
+            last.lng = ((last.lng * (last.visits || 1)) + (point.lng * (point.visits || 1))) / tv;
             last.endTime = Math.max(last.endTime, point.endTime);
-            last.visits = totalVisits;
+            last.visits = tv;
         } else {
             merged.push({ ...point });
         }
     }
-
     pathCoordinates = shrinkOldPoints(merged, MAX_PATH_POINTS);
 }
 
 function shrinkOldPoints(points, maxPoints) {
     if (points.length <= maxPoints) return points;
-
     const keepTail = Math.floor(maxPoints * 0.4);
     const tail = points.slice(-keepTail);
     const head = points.slice(0, points.length - keepTail);
     const ratio = Math.ceil(head.length / (maxPoints - keepTail));
-    const reducedHead = head.filter((_, index) => index % ratio === 0);
-
-    return [...reducedHead, ...tail].slice(-maxPoints);
+    return [...head.filter((_, i) => i % ratio === 0), ...tail].slice(-maxPoints);
 }
 
-function updateStats() {
-    document.getElementById("dist-val").innerHTML =
-        `${(totalDistance / 1000).toFixed(2)}<span>km</span>`;
-    document.getElementById("memo-val").innerText = memories.length;
-}
-
+// --- 기억 마킹 ---
 function addMemory() {
-    if (!currentPos) {
-        alert("위치 정보를 수신 중입니다.");
-        return;
-    }
-
+    if (!currentPos) { alert("위치 정보를 수신 중입니다."); return; }
     const input = prompt("이 장소의 이름을 입력하세요:", "새로운 발견");
     if (input === null) return;
 
@@ -485,15 +502,8 @@ function addMemory() {
         lng: currentPos.lng,
         name: escapeHtml(input.trim() || "기억의 지점"),
         time: now.getTime(),
-        dateString: now.toLocaleDateString("ko-KR", {
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-        }),
-        timeString: now.toLocaleTimeString("ko-KR", {
-            hour: "2-digit",
-            minute: "2-digit"
-        })
+        dateString: now.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }),
+        timeString: now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
     };
 
     memories.push(data);
@@ -520,14 +530,9 @@ function createMemoryMarker(data, openPopup = false) {
 }
 
 function deleteMemory(id) {
-    memories = memories.filter((memory) => memory.id !== id);
-
+    memories = memories.filter((m) => m.id !== id);
     const marker = memoryMarkers.get(id);
-    if (marker) {
-        map.removeLayer(marker);
-        memoryMarkers.delete(id);
-    }
-
+    if (marker) { map.removeLayer(marker); memoryMarkers.delete(id); }
     updateMemoryList();
     updateStats();
     scheduleSave();
@@ -543,23 +548,17 @@ function updateMemoryList() {
     }
 
     container.innerHTML = "";
-
     [...memories].reverse().forEach((memo) => {
         const item = document.createElement("div");
         item.className = "memory-item";
         item.innerHTML =
-            '<span class="item-name">★ ' + memo.name + "</span>" +
-            '<span class="item-date">' + memo.dateString + " " + (memo.timeString || "") + "</span>" +
+            '<span class="item-name">★ ' + memo.name + '</span>' +
+            '<span class="item-date">' + memo.dateString + " " + (memo.timeString || "") + '</span>' +
             '<div class="memory-actions">' +
-            '<button onclick="event.stopPropagation(); map.flyTo([' + memo.lat + "," + memo.lng + '], 17);" class="memory-action-btn move">이동</button>' +
+            '<button onclick="event.stopPropagation(); map.flyTo([' + memo.lat + ',' + memo.lng + '], 17);" class="memory-action-btn move">이동</button>' +
             '<button onclick="event.stopPropagation(); deleteMemory(\'' + memo.id + '\')" class="memory-action-btn delete">삭제</button>' +
-            "</div>";
-
-        item.onclick = () => {
-            map.flyTo([memo.lat, memo.lng], 17);
-            toggleSidebar(false);
-        };
-
+            '</div>';
+        item.onclick = () => { map.flyTo([memo.lat, memo.lng], 17); toggleSidebar(false); };
         container.appendChild(item);
     });
 }
@@ -568,11 +567,7 @@ function toggleSidebar(forceOpen) {
     const sidebar = document.getElementById("sidebar");
     const overlay = document.getElementById("sidebar-overlay");
     if (!sidebar || !overlay) return;
-
-    const willOpen = typeof forceOpen === "boolean"
-        ? forceOpen
-        : !sidebar.classList.contains("open");
-
+    const willOpen = typeof forceOpen === "boolean" ? forceOpen : !sidebar.classList.contains("open");
     sidebar.classList.toggle("open", willOpen);
     overlay.classList.toggle("show", willOpen);
 }
@@ -581,6 +576,7 @@ function centerMap() {
     if (currentPos) map.panTo(currentPos);
 }
 
+// --- localStorage 저장/복원 ---
 function scheduleSave() {
     if (saveTimer !== null) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -592,107 +588,72 @@ function scheduleSave() {
 
 function persistState() {
     try {
-        const data = {
-            pathCoordinates: pathCoordinates.map((point) => ({
-                lat: point.lat,
-                lng: point.lng,
-                startTime: point.startTime,
-                endTime: point.endTime,
-                visits: point.visits || 1
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            pathCoordinates: pathCoordinates.map((p) => ({
+                lat: p.lat, lng: p.lng,
+                startTime: p.startTime, endTime: p.endTime,
+                visits: p.visits || 1
             })),
-            memories: memories.map((memory) => ({
-                id: memory.id,
-                lat: memory.lat,
-                lng: memory.lng,
-                name: memory.name,
-                time: memory.time,
-                dateString: memory.dateString,
-                timeString: memory.timeString
+            memories: memories.map((m) => ({
+                id: m.id, lat: m.lat, lng: m.lng,
+                name: m.name, time: m.time,
+                dateString: m.dateString, timeString: m.timeString
             })),
             totalDistance
-        };
-
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
-        console.error("저장 실패", error);
-    }
+        }));
+    } catch (e) { console.error("저장 실패", e); }
 }
 
 function loadState() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return;
-
         const saved = JSON.parse(raw);
 
         if (Array.isArray(saved.pathCoordinates)) {
             pathCoordinates = saved.pathCoordinates
-                .filter((point) =>
-                    isFinite(point.lat) &&
-                    isFinite(point.lng) &&
-                    isFinite(point.startTime) &&
-                    isFinite(point.endTime)
-                )
-                .map((point) => ({
-                    lat: point.lat,
-                    lng: point.lng,
-                    startTime: point.startTime,
-                    endTime: point.endTime,
-                    visits: isFinite(point.visits) ? point.visits : 1
+                .filter((p) => isFinite(p.lat) && isFinite(p.lng) && isFinite(p.startTime) && isFinite(p.endTime))
+                .map((p) => ({
+                    lat: p.lat, lng: p.lng,
+                    startTime: p.startTime, endTime: p.endTime,
+                    visits: isFinite(p.visits) ? p.visits : 1
                 }));
         }
 
         if (Array.isArray(saved.memories)) {
             memories = saved.memories
-                .filter((memory) =>
-                    isFinite(memory.lat) &&
-                    isFinite(memory.lng) &&
-                    typeof memory.name === "string"
-                )
-                .map((memory) => ({
-                    id: typeof memory.id === "string" ? memory.id : String(memory.time),
-                    lat: memory.lat,
-                    lng: memory.lng,
-                    name: memory.name,
-                    time: memory.time,
-                    dateString: memory.dateString,
-                    timeString: typeof memory.timeString === "string"
-                        ? memory.timeString
-                        : new Date(memory.time).toLocaleTimeString("ko-KR", {
-                            hour: "2-digit",
-                            minute: "2-digit"
-                        })
+                .filter((m) => isFinite(m.lat) && isFinite(m.lng) && typeof m.name === "string")
+                .map((m) => ({
+                    id: typeof m.id === "string" ? m.id : String(m.time),
+                    lat: m.lat, lng: m.lng, name: m.name, time: m.time,
+                    dateString: m.dateString,
+                    timeString: typeof m.timeString === "string"
+                        ? m.timeString
+                        : new Date(m.time).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
                 }));
         }
 
-        if (isFinite(saved.totalDistance)) {
-            totalDistance = saved.totalDistance;
-        }
+        if (isFinite(saved.totalDistance)) totalDistance = saved.totalDistance;
 
-        const savedFogEnabled = localStorage.getItem(FOG_ENABLED_KEY);
-        if (savedFogEnabled !== null) {
-            isFogEnabled = savedFogEnabled === "true";
-        }
+        const savedFog = localStorage.getItem(FOG_ENABLED_KEY);
+        if (savedFog !== null) isFogEnabled = savedFog === "true";
 
         compactPathData();
-    } catch (error) {
-        console.error("복원 실패", error);
-    }
+    } catch (e) { console.error("복원 실패", e); }
 }
 
 function renderStoredMarkers() {
-    memories.forEach((memory) => createMemoryMarker(memory, false));
+    memories.forEach((m) => createMemoryMarker(m, false));
 }
 
 function escapeHtml(value) {
     return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;").replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 }
 
+// --- 초기화 ---
 loadState();
 renderStoredMarkers();
 updateStats();
