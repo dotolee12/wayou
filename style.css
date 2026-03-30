@@ -499,6 +499,48 @@ html, body {
 
 .popup-delete-btn:hover { background: #ff3333; }
 
+.leaflet-popup {
+    z-index: 2000 !important;
+}
+
+.leaflet-popup-content-wrapper {
+    background: rgba(20, 20, 30, 0.95) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+.leaflet-popup-content {
+    margin: 12px 14px !important;
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    color: #fff !important;
+}
+
+.leaflet-popup-content b {
+    font-size: 14px;
+    color: #fff;
+}
+
+.leaflet-popup-content small {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+}
+
+.leaflet-popup-tip {
+    background: rgba(20, 20, 30, 0.95) !important;
+}
+
+.leaflet-popup-close-button {
+    color: rgba(255, 255, 255, 0.5) !important;
+    font-size: 18px !important;
+}
+
+.leaflet-marker-pane {
+    z-index: 1500 !important;
+}
+
 .photo-marker {
     width: 44px;
     height: 44px;
@@ -522,3 +564,4 @@ html, body {
     margin-bottom: 8px;
     display: block;
 }
+
