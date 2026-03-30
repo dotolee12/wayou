@@ -687,45 +687,135 @@ function openCamera() {
     document.getElementById("camera-input").click();
 }
 
+// EXIF에서 GPS 좌표 추출
+function parseExifGps(buffer) {
+    const view = new DataView(buffer);
+    if (view.getUint16(0) !== 0xFFD8) return null;
+
+    let offset = 2;
+    while (offset < view.byteLength) {
+        const marker = view.getUint16(offset);
+        offset += 2;
+        if (marker === 0xFFE1) {
+            const exifLen = view.getUint16(offset);
+            const exifHeader = String.fromCharCode(
+                view.getUint8(offset + 2), view.getUint8(offset + 3),
+                view.getUint8(offset + 4), view.getUint8(offset + 5)
+            );
+            if (exifHeader !== "Exif") break;
+
+            const tiffOffset = offset + 8;
+            const littleEndian = view.getUint16(tiffOffset) === 0x4949;
+            const getUint16 = (o) => view.getUint16(tiffOffset + o, littleEndian);
+            const getUint32 = (o) => view.getUint32(tiffOffset + o, littleEndian);
+
+            const ifdOffset = getUint32(4);
+            const ifdCount = getUint16(ifdOffset);
+
+            let gpsIfdOffset = null;
+            for (let i = 0; i < ifdCount; i++) {
+                const entryOffset = ifdOffset + 2 + i * 12;
+                if (getUint16(entryOffset) === 0x8825) {
+                    gpsIfdOffset = getUint32(entryOffset + 8);
+                }
+            }
+
+            if (gpsIfdOffset === null) return null;
+
+            const gpsCount = getUint16(gpsIfdOffset);
+            let latRef, lat, lngRef, lng;
+
+            for (let i = 0; i < gpsCount; i++) {
+                const e = gpsIfdOffset + 2 + i * 12;
+                const tag = getUint16(e);
+                const valOffset = getUint32(e + 8);
+
+                if (tag === 1) latRef = String.fromCharCode(view.getUint8(tiffOffset + valOffset));
+                if (tag === 3) lngRef = String.fromCharCode(view.getUint8(tiffOffset + valOffset));
+
+                if (tag === 2 || tag === 4) {
+                    const d = view.getUint32(tiffOffset + valOffset, littleEndian) /
+                              view.getUint32(tiffOffset + valOffset + 4, littleEndian);
+                    const m = view.getUint32(tiffOffset + valOffset + 8, littleEndian) /
+                              view.getUint32(tiffOffset + valOffset + 12, littleEndian);
+                    const s = view.getUint32(tiffOffset + valOffset + 16, littleEndian) /
+                              view.getUint32(tiffOffset + valOffset + 20, littleEndian);
+                    const val = d + m / 60 + s / 3600;
+                    if (tag === 2) lat = val;
+                    if (tag === 4) lng = val;
+                }
+            }
+
+            if (lat == null || lng == null) return null;
+            return {
+                lat: latRef === "S" ? -lat : lat,
+                lng: lngRef === "W" ? -lng : lng
+            };
+        }
+        offset += view.getUint16(offset);
+    }
+    return null;
+}
+
 function handlePhoto(event) {
     const file = event.target.files[0];
-    if (!file || !currentPos) return;
+    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const base64 = e.target.result;
-        const now = new Date();
+    const arrayReader = new FileReader();
+    arrayReader.onload = function(ae) {
+        const buffer = ae.target.result;
+        const gps = parseExifGps(buffer);
 
-        // 이미지 압축
-        const img = new Image();
-        img.onload = function() {
-            const canvas = document.createElement("canvas");
-            const maxSize = 400;
-            let w = img.width, h = img.height;
-            if (w > h && w > maxSize) { h = h * maxSize / w; w = maxSize; }
-            else if (h > maxSize) { w = w * maxSize / h; h = maxSize; }
-            canvas.width = w;
-            canvas.height = h;
-            canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-            const compressed = canvas.toDataURL("image/jpeg", 0.6);
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64 = e.target.result;
+            const now = new Date();
 
-            const data = {
-                id: String(now.getTime()),
-                lat: currentPos.lat,
-                lng: currentPos.lng,
-                photo: compressed,
-                time: now.getTime(),
-                dateString: now.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }),
-                timeString: now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement("canvas");
+                const maxSize = 400;
+                let w = img.width, h = img.height;
+                if (w > h && w > maxSize) { h = h * maxSize / w; w = maxSize; }
+                else if (h > maxSize) { w = w * maxSize / h; h = maxSize; }
+                canvas.width = w;
+                canvas.height = h;
+                canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+                const compressed = canvas.toDataURL("image/jpeg", 0.6);
+
+                // EXIF GPS 있으면 사용, 없으면 현재 위치
+                const lat = gps ? gps.lat : (currentPos ? currentPos.lat : null);
+                const lng = gps ? gps.lng : (currentPos ? currentPos.lng : null);
+
+                if (!lat || !lng) {
+                    alert("사진에 위치 정보가 없고 현재 위치도 수신 중입니다.");
+                    return;
+                }
+
+                if (!gps && currentPos) {
+                    alert("사진에 위치 정보가 없어 현재 위치에 저장합니다.");
+                }
+
+                const data = {
+                    id: String(now.getTime()),
+                    lat: lat,
+                    lng: lng,
+                    photo: compressed,
+                    time: now.getTime(),
+                    dateString: now.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" }),
+                    timeString: now.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })
+                };
+
+                photos.push(data);
+                createPhotoMarker(data, true);
+                map.flyTo([lat, lng], 17);
+                scheduleSave();
             };
-
-            photos.push(data);
-            createPhotoMarker(data, true);
-            scheduleSave();
+            img.src = base64;
         };
-        img.src = base64;
+        reader.readAsDataURL(file);
     };
-    reader.readAsDataURL(file);
+    arrayReader.readAsArrayBuffer(file);
     event.target.value = "";
 }
 
