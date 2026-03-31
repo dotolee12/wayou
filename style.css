@@ -8,11 +8,9 @@ html, body {
     font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
-/* ── 지도 ── */
 #map-wrap { position: absolute; inset: 0; z-index: 1; }
 #map { width: 100%; height: 100%; filter: grayscale(0.12) contrast(1.04); }
 
-/* ── 캔버스 3개 ── */
 #fog-canvas,
 #age-canvas,
 #stay-canvas {
@@ -25,7 +23,12 @@ html, body {
 #age-canvas  { z-index: 401; }
 #stay-canvas { z-index: 402; }
 
-/* ── 상단 바 ── */
+/* ✅ 마커를 안개 위로 */
+.leaflet-marker-pane  { z-index: 450 !important; }
+.leaflet-popup-pane   { z-index: 451 !important; }
+.leaflet-tooltip-pane { z-index: 452 !important; }
+
+/* 상단 바 */
 #top-bar {
     position: absolute;
     top: 20px; left: 20px; right: 20px;
@@ -76,7 +79,7 @@ html, body {
     color: #ff8888;
 }
 
-/* ── 사이드바 ── */
+/* 사이드바 */
 #sidebar {
     position: fixed;
     top: 0; left: -300px;
@@ -111,7 +114,6 @@ html, body {
 .sidebar-header h2 { font-size: 18px; color: #4db8ff; }
 .close-btn { cursor: pointer; font-size: 18px; }
 
-/* ── 기억 아이템 ── */
 .memory-item {
     background: rgba(255, 255, 255, 0.05);
     padding: 15px;
@@ -154,14 +156,14 @@ html, body {
     margin-bottom: 20px;
 }
 
-/* ── ✅ fog-toggle-row 중복 제거 후 통합 ── */
+/* fog 토글 */
 .fog-toggle-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    padding: 4px 0 16px;   /* 첫 번째 선언의 padding 유지 */
-    cursor: pointer;       /* cursor 유지 */
+    padding: 4px 0 16px;
+    cursor: pointer;
 }
 
 .fog-toggle-label {
@@ -208,10 +210,13 @@ html, body {
     background: #fff;
     transition: transform 0.25s ease;
 }
-.toggle-switch.on  .toggle-knob { transform: translateX(18px); background: #fff; }
-.toggle-switch.off .toggle-knob { transform: translateX(0);    background: rgba(80, 80, 100, 0.7); }
+.toggle-switch.on  .toggle-knob { transform: translateX(18px); }
+.toggle-switch.off .toggle-knob {
+    transform: translateX(0);
+    background: rgba(80, 80, 100, 0.7);
+}
 
-/* ── 컨트롤 버튼 ── */
+/* 컨트롤 버튼 */
 #controls {
     position: absolute;
     bottom: 36px; right: 20px;
@@ -221,7 +226,6 @@ html, body {
     gap: 12px;
     transition: bottom 0.3s ease;
 }
-/* ✅ HUD 높이(120px) + 여백(16px) = 136px */
 #controls.hud-open { bottom: 136px; }
 
 .btn {
@@ -253,7 +257,7 @@ html, body {
     box-shadow: 0 0 10px #4db8ff;
 }
 
-/* ── 왼쪽 하단 문의 버튼 ── */
+/* 왼쪽 하단 문의 버튼 */
 #help-btn {
     position: absolute;
     bottom: 36px; left: 20px;
@@ -272,11 +276,10 @@ html, body {
     backdrop-filter: blur(8px);
     transition: bottom 0.3s ease;
 }
-/* ✅ controls와 동일하게 맞춤 */
 #help-btn.hud-open { bottom: 136px; }
 #help-btn:hover { border-color: #4db8ff; color: #4db8ff; }
 
-/* ── 문의 팝업 ── */
+/* 문의 팝업 */
 #help-popup {
     display: none;
     position: fixed;
@@ -295,7 +298,7 @@ html, body {
     border-radius: 16px;
     padding: 22px 20px;
     width: calc(100% - 40px);
-    max-width: 400px;   /* ✅ 갤럭시 탭 대응 넓힘 */
+    max-width: 400px;
     color: #fff;
 }
 
@@ -332,7 +335,7 @@ html, body {
 }
 .help-link:hover { background: rgba(255, 235, 0, 0.2); }
 
-/* ── HUD ── */
+/* HUD */
 #hud {
     position: absolute;
     bottom: 0; left: 0; right: 0;
@@ -342,12 +345,10 @@ html, body {
     backdrop-filter: blur(10px);
     transition: height 0.3s ease;
     overflow: hidden;
-    /* ✅ 핸들(8+4+4px bar) = 약 28px로 여유있게 */
     height: 28px;
 }
 #hud.expanded { height: 120px; }
 
-/* 핸들 */
 #hud-handle {
     display: flex;
     justify-content: center;
@@ -364,11 +365,10 @@ html, body {
 }
 #hud-handle:hover .handle-bar { background: rgba(255, 255, 255, 0.5); }
 
-/* HUD 내용 */
 #hud-basic {
     display: flex;
     align-items: center;
-    padding: 0 30px;
+    padding: 0 16px;
     height: 80px;
     opacity: 0;
     transform: translateY(6px);
@@ -381,26 +381,32 @@ html, body {
     pointer-events: auto;
 }
 
+/* ✅ 4개 stat */
 .stat { flex: 1; }
+.stat+.stat {
+    border-left: 0.5px solid rgba(255, 255, 255, 0.08);
+    padding-left: 10px;
+}
 .label {
-    font-size: 11px;
+    font-size: 9px;
     color: rgba(255, 255, 255, 0.4);
     font-weight: bold;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.02em;
+    word-break: keep-all;
 }
 .value {
-    font-size: 20px;
+    font-size: 16px;
     color: #fff;
     font-weight: 600;
     margin-top: 4px;
 }
 .value span {
     margin-left: 2px;
-    font-size: 14px;
+    font-size: 12px;
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* ── Leaflet 마커 ── */
+/* Leaflet 마커 */
 .player-marker {
     width: 18px; height: 18px;
     background: #4db8ff;
@@ -409,6 +415,7 @@ html, body {
     box-shadow: 0 0 14px rgba(77, 184, 255, 0.95);
 }
 
+/* ✅ 기억 마커 — 선명하게 */
 .memory-marker {
     width: 28px; height: 28px;
     display: flex;
@@ -416,7 +423,26 @@ html, body {
     align-items: center;
     color: #ffd84d;
     font-size: 22px;
-    text-shadow: 0 0 10px rgba(255, 216, 77, 0.55);
+    text-shadow:
+        0 0 10px rgba(255, 216, 77, 0.9),
+        0 0 20px rgba(255, 216, 77, 0.5);
+    filter: drop-shadow(0 0 4px rgba(255, 216, 77, 0.8));
+}
+
+/* ✅ 사진 마커 — 선명하게 */
+.photo-marker {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    border: 2px solid #fff;
+    overflow: hidden;
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.4),
+        0 0 0 2px rgba(255, 255, 255, 0.3);
+    cursor: pointer;
+}
+.photo-marker img {
+    width: 100%; height: 100%;
+    object-fit: cover;
 }
 
 .popup-delete-btn {
@@ -433,7 +459,7 @@ html, body {
 }
 .popup-delete-btn:hover { background: #ff3333; }
 
-/* ── Leaflet 팝업 커스텀 ── */
+/* Leaflet 팝업 */
 .leaflet-popup { z-index: 2000 !important; }
 
 .leaflet-popup-content-wrapper {
@@ -451,29 +477,13 @@ html, body {
     color: #fff !important;
 }
 
-.leaflet-popup-content b  { font-size: 14px; color: #fff; }
+.leaflet-popup-content b     { font-size: 14px; color: #fff; }
 .leaflet-popup-content small { color: rgba(255, 255, 255, 0.5); font-size: 11px; }
-.leaflet-popup-tip { background: rgba(20, 20, 30, 0.95) !important; }
-.leaflet-popup-close-button { color: rgba(255, 255, 255, 0.5) !important; font-size: 18px !important; }
-.leaflet-marker-pane { z-index: 1500 !important; }
-
-/* ── 사진 마커 & 팝업 ── */
-.photo-marker {
-    width: 44px; height: 44px;
-    border-radius: 8px;
-    border: 2px solid #fff;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-    cursor: pointer;
-}
-.photo-marker img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-}
+.leaflet-popup-tip           { background: rgba(20, 20, 30, 0.95) !important; }
+.leaflet-popup-close-button  { color: rgba(255, 255, 255, 0.5) !important; font-size: 18px !important; }
 
 .photo-popup img {
     width: 100%;
-    /* ✅ 갤럭시 탭 대응: max-width 넓힘 */
     max-width: 300px;
     border-radius: 8px;
     margin-bottom: 8px;
