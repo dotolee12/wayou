@@ -15,11 +15,11 @@ const FULL_VISIBILITY_HOURS = 0;
 const MIN_VISIBILITY_HOURS  = 24;
 const MIN_PATH_VISIBILITY   = 0.4;
 
-const THREE_DAYS_IN_DAYS   = 3;
-const ONE_MONTH_DAYS       = 30;
-const THREE_MONTHS_DAYS    = 90;
-const SIX_MONTHS_DAYS      = 180;
-const ONE_YEAR_DAYS        = 365;
+const THREE_DAYS_IN_DAYS  = 3;
+const ONE_MONTH_DAYS      = 30;
+const THREE_MONTHS_DAYS   = 90;
+const SIX_MONTHS_DAYS     = 180;
+const ONE_YEAR_DAYS       = 365;
 const SEDIMENT_LAYER_COLOR = "rgba(126, 112, 96, 0.24)";
 
 // ── 상태 ──────────────────────────────────────────
@@ -48,8 +48,9 @@ const map = L.map("map", { zoomControl: false, attributionControl: false })
 
 L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png").addTo(map);
 
+// ✅ memoryPane z-index를 안개(402) 위로
 map.createPane("memoryPane");
-map.getPane("memoryPane").style.zIndex = 1500;
+map.getPane("memoryPane").style.zIndex = 500;
 
 // ── 캔버스 ────────────────────────────────────────
 const fogCanvas  = document.getElementById("fog-canvas");
@@ -86,7 +87,7 @@ function render() {
     renderStayTint();
 }
 
-// ── 픽셀 변환 (렌더마다 한 번만 계산) ─────────────
+// ── 픽셀 변환 (렌더당 1회) ────────────────────────
 function calcMpp() {
     const center = map.getCenter();
     const pt  = map.latLngToContainerPoint(center);
@@ -109,8 +110,7 @@ function renderFog() {
     fogCtx.fillRect(0, 0, w, h);
     if (pathCoordinates.length === 0) return;
 
-    const now = Date.now();
-    // ✅ mpp 한 번만 계산
+    const now    = Date.now();
     const mpp    = calcMpp();
     const radius = metersToPixels(FOG_RADIUS_M, mpp);
 
@@ -153,13 +153,12 @@ function getPathVisibility(ageHours) {
 }
 
 // ── 경과 일수 색상 레이어 ─────────────────────────
-// ✅ clip 방식 제거 → 점마다 독립적으로 색상 적용
 function renderAgeTint() {
     const w = ageCanvas.width, h = ageCanvas.height;
     ageCtx.clearRect(0, 0, w, h);
     if (pathCoordinates.length === 0) return;
 
-    const now = Date.now();
+    const now    = Date.now();
     const mpp    = calcMpp();
     const radius = metersToPixels(FOG_RADIUS_M, mpp);
 
@@ -194,16 +193,15 @@ function renderAgeTint() {
 }
 
 function getAgeColor(ageDays) {
-    if (ageDays < THREE_DAYS_IN_DAYS)  return null;
-    if (ageDays < ONE_MONTH_DAYS)      return "rgba(173, 255, 120, 0.16)";
-    if (ageDays < THREE_MONTHS_DAYS)   return "rgba(60,  170,  80, 0.18)";
-    if (ageDays < SIX_MONTHS_DAYS)     return "rgba(214, 176,  55, 0.18)";
-    if (ageDays < ONE_YEAR_DAYS)       return "rgba(130,  92,  55, 0.20)";
+    if (ageDays < THREE_DAYS_IN_DAYS) return null;
+    if (ageDays < ONE_MONTH_DAYS)     return "rgba(173, 255, 120, 0.16)";
+    if (ageDays < THREE_MONTHS_DAYS)  return "rgba(60,  170,  80, 0.18)";
+    if (ageDays < SIX_MONTHS_DAYS)    return "rgba(214, 176,  55, 0.18)";
+    if (ageDays < ONE_YEAR_DAYS)      return "rgba(130,  92,  55, 0.20)";
     return SEDIMENT_LAYER_COLOR;
 }
 
 // ── 머문 시간 레이어 ──────────────────────────────
-// ✅ destination-out을 fog-canvas에 간접 적용 → stay-canvas에는 source-over 사용
 function renderStayTint() {
     const w = stayCanvas.width, h = stayCanvas.height;
     stayCtx.clearRect(0, 0, w, h);
@@ -259,7 +257,6 @@ function syncFogButton() {
     const toggleBtn   = document.getElementById("fog-toggle-btn");
     const toggleState = document.getElementById("fog-toggle-state");
     if (!toggleBtn) return;
-
     toggleBtn.classList.toggle("on",  isFogEnabled);
     toggleBtn.classList.toggle("off", !isFogEnabled);
     if (toggleState) {
@@ -301,7 +298,7 @@ function toggleFog() {
     scheduleRender();
 }
 
-// ── GPS 시작/중단 ──────────────────────────────────
+// ── GPS ───────────────────────────────────────────
 function startTracking() {
     if (!navigator.geolocation) {
         alert("이 브라우저는 위치 추적을 지원하지 않습니다.");
@@ -327,7 +324,6 @@ function stopTracking() {
     }
 }
 
-// ── GPS 처리 ──────────────────────────────────────
 function handlePosition(position) {
     const accuracy = Number(position.coords.accuracy) || Infinity;
     const latlng   = L.latLng(position.coords.latitude, position.coords.longitude);
@@ -360,19 +356,17 @@ function handlePosition(position) {
         return;
     }
 
-    const last           = pathCoordinates[pathCoordinates.length - 1];
-    const dist           = distanceToPoint(latlng, last);
-    const stayThreshold  = getDynamicStayThreshold(accuracy);
+    const last          = pathCoordinates[pathCoordinates.length - 1];
+    const dist          = distanceToPoint(latlng, last);
+    const stayThreshold = getDynamicStayThreshold(accuracy);
 
     if (dist <= stayThreshold) {
-        // 머무는 중 — 좌표 스무딩
         last.endTime = now;
         last.visits  = (last.visits || 1) + 1;
         const sf = 0.3;
         last.lat += (latlng.lat - last.lat) * sf;
         last.lng += (latlng.lng - last.lng) * sf;
     } else {
-        // 이동 — 새 점 추가
         totalDistance += dist;
         pathCoordinates.push(createPathPoint(latlng, now));
         if (pathCoordinates.length > MAX_PATH_POINTS) compactPathData();
@@ -394,8 +388,10 @@ function handleLocationError(err) {
 }
 
 function createPathPoint(latlng, timestamp) {
-    return { lat: latlng.lat, lng: latlng.lng,
-             startTime: timestamp, endTime: timestamp, visits: 1 };
+    return {
+        lat: latlng.lat, lng: latlng.lng,
+        startTime: timestamp, endTime: timestamp, visits: 1
+    };
 }
 
 function distanceToPoint(latlng, point) {
@@ -406,13 +402,11 @@ function getDynamicStayThreshold(accuracy) {
     return Math.max(MIN_MOVE_M, Math.min(MAX_STAY_RADIUS_M, accuracy * STAY_ACCURACY_FACTOR));
 }
 
-// ── 오늘 거리 계산 ────────────────────────────────
-// ✅ handlePosition 누적 제거 → calcTodayDistance() 하나로 통일
+// ── 오늘 거리 ─────────────────────────────────────
 function calcTodayDistance() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todayStartMs = todayStart.getTime();
-
     let dist = 0;
     for (let i = 1; i < pathCoordinates.length; i++) {
         if (pathCoordinates[i].startTime >= todayStartMs) {
@@ -425,7 +419,6 @@ function calcTodayDistance() {
 }
 
 // ── 통계 업데이트 ─────────────────────────────────
-// ✅ memo-val → memory-count-val 로 수정
 function updateStats() {
     const todayDist = calcTodayDistance();
 
@@ -437,6 +430,10 @@ function updateStats() {
 
     document.getElementById("memory-count-val").innerHTML =
         `${memories.length}<span>개</span>`;
+
+    // ✅ 사진 수
+    document.getElementById("photo-count-val").innerHTML =
+        `${photos.length}<span>개</span>`;
 }
 
 // ── 경로 압축 ─────────────────────────────────────
@@ -464,8 +461,8 @@ function compactPathData() {
 function shrinkOldPoints(points, maxPoints) {
     if (points.length <= maxPoints) return points;
     const keepTail = Math.floor(maxPoints * 0.4);
-    const tail = points.slice(-keepTail);
-    const head = points.slice(0, points.length - keepTail);
+    const tail  = points.slice(-keepTail);
+    const head  = points.slice(0, points.length - keepTail);
     const ratio = Math.ceil(head.length / (maxPoints - keepTail));
     return [...head.filter((_, i) => i % ratio === 0), ...tail].slice(-maxPoints);
 }
@@ -496,7 +493,6 @@ function addMemory() {
     scheduleSave();
 }
 
-// ✅ id를 data 속성으로 전달해서 onclick 특수문자 문제 방지
 function createMemoryMarker(data, openPopup = false) {
     const marker = L.marker([data.lat, data.lng], {
         pane: "memoryPane",
@@ -504,14 +500,22 @@ function createMemoryMarker(data, openPopup = false) {
     }).addTo(map);
 
     const popupEl = document.createElement("div");
-    popupEl.innerHTML =
-        `<b>${data.name}</b><br>` +
-        `<small>${data.dateString} ${data.timeString || ""}</small><br>`;
+
+    const title = document.createElement("b");
+    title.textContent = data.name;
+
+    const info = document.createElement("small");
+    info.style.display = "block";
+    info.textContent   = `${data.dateString} ${data.timeString || ""}`;
 
     const delBtn = document.createElement("button");
     delBtn.className   = "popup-delete-btn";
     delBtn.textContent = "삭제";
     delBtn.addEventListener("click", () => deleteMemory(data.id));
+
+    popupEl.appendChild(title);
+    popupEl.appendChild(document.createElement("br"));
+    popupEl.appendChild(info);
     popupEl.appendChild(delBtn);
 
     marker.bindPopup(popupEl);
@@ -548,7 +552,7 @@ function updateMemoryList() {
 
         const date = document.createElement("span");
         date.className   = "item-date";
-        date.textContent = memo.dateString + " " + (memo.timeString || "");
+        date.textContent = `${memo.dateString} ${memo.timeString || ""}`;
 
         const actions = document.createElement("div");
         actions.className = "memory-actions";
@@ -731,6 +735,7 @@ function handlePhoto(event) {
                 photos.push(data);
                 createPhotoMarker(data, true);
                 map.flyTo([lat, lng], 17);
+                updateStats(); // ✅ 사진 수 즉시 갱신
                 scheduleSave();
             };
             img.src = base64;
@@ -756,7 +761,7 @@ function parseExifGps(buffer) {
             );
             if (exifHeader !== "Exif") break;
 
-            const tiffOffset  = offset + 8;
+            const tiffOffset   = offset + 8;
             const littleEndian = view.getUint16(tiffOffset) === 0x4949;
             const getU16 = o => view.getUint16(tiffOffset + o, littleEndian);
             const getU32 = o => view.getUint32(tiffOffset + o, littleEndian);
@@ -783,9 +788,9 @@ function parseExifGps(buffer) {
                 if (tag === 3) lngRef = String.fromCharCode(view.getUint8(tiffOffset + vo));
 
                 if (tag === 2 || tag === 4) {
-                    const d = getU32(vo)    / getU32(vo + 4);
-                    const m = getU32(vo + 8) / getU32(vo + 12);
-                    const s = getU32(vo + 16) / getU32(vo + 20);
+                    const d   = getU32(vo)      / getU32(vo + 4);
+                    const m   = getU32(vo + 8)  / getU32(vo + 12);
+                    const s   = getU32(vo + 16) / getU32(vo + 20);
                     const val = d + m / 60 + s / 3600;
                     if (tag === 2) lat = val;
                     if (tag === 4) lng = val;
@@ -803,6 +808,7 @@ function parseExifGps(buffer) {
     return null;
 }
 
+// ✅ 사진 마커 — 팝업에 삭제 버튼 추가
 function createPhotoMarker(data, openPopup = false) {
     const icon = L.divIcon({
         className: "photo-marker",
@@ -812,7 +818,8 @@ function createPhotoMarker(data, openPopup = false) {
     });
 
     const marker = L.marker([data.lat, data.lng], {
-        pane: "memoryPane", icon
+        pane: "memoryPane",
+        icon: icon
     }).addTo(map);
 
     const popupEl = document.createElement("div");
@@ -822,15 +829,39 @@ function createPhotoMarker(data, openPopup = false) {
     img.src = data.photo;
 
     const info = document.createElement("div");
-    info.style.cssText = "margin-top:6px;font-size:12px;color:rgba(255,255,255,0.7);text-align:center;";
-    info.textContent   = `${data.dateString}\n${data.timeString}`;
+    info.style.cssText =
+        "font-size:12px;color:rgba(255,255,255,0.6);" +
+        "text-align:center;margin:6px 0 8px;";
+    info.textContent = `${data.dateString} ${data.timeString}`;
+
+    // ✅ 삭제 버튼
+    const delBtn = document.createElement("button");
+    delBtn.className   = "popup-delete-btn";
+    delBtn.textContent = "사진 삭제";
+    delBtn.addEventListener("click", () => {
+        deletePhoto(data.id);
+        marker.closePopup();
+    });
 
     popupEl.appendChild(img);
     popupEl.appendChild(info);
-    marker.bindPopup(popupEl);
+    popupEl.appendChild(delBtn);
 
+    marker.bindPopup(popupEl);
     photoMarkers.set(data.id, marker);
     if (openPopup) marker.openPopup();
+}
+
+// ✅ 사진 삭제 — updateStats 포함
+function deletePhoto(id) {
+    photos = photos.filter(p => p.id !== id);
+    const marker = photoMarkers.get(id);
+    if (marker) {
+        map.removeLayer(marker);
+        photoMarkers.delete(id);
+    }
+    updateStats();
+    scheduleSave();
 }
 
 function escapeHtml(value) {
@@ -841,7 +872,14 @@ function escapeHtml(value) {
 }
 
 // ── 초기화 ────────────────────────────────────────
-// ✅ map.whenReady() 후 복원 — 좌표 변환 오류 방지
+function renderStoredMarkers() {
+    memories.forEach(m => createMemoryMarker(m, false));
+}
+
+function renderStoredPhotoMarkers() {
+    photos.forEach(p => createPhotoMarker(p, false));
+}
+
 function init() {
     resizeCanvas();
     loadState();
@@ -853,8 +891,5 @@ function init() {
     syncFogButton();
     scheduleRender();
 }
-
-function renderStoredMarkers()      { memories.forEach(m => createMemoryMarker(m, false)); }
-function renderStoredPhotoMarkers() { photos.forEach(p   => createPhotoMarker(p,  false)); }
 
 map.whenReady(() => init());
