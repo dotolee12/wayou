@@ -8,29 +8,27 @@ html, body {
     font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
 }
 
+/* ── 지도 ── */
 #map-wrap { position: absolute; inset: 0; z-index: 1; }
 #map { width: 100%; height: 100%; filter: grayscale(0.12) contrast(1.04); }
 
+/* ── 캔버스 3개 ── */
 #fog-canvas,
 #age-canvas,
 #stay-canvas {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
     pointer-events: none;
 }
 #fog-canvas  { z-index: 400; }
 #age-canvas  { z-index: 401; }
 #stay-canvas { z-index: 402; }
 
-/* 상단 바 */
+/* ── 상단 바 ── */
 #top-bar {
     position: absolute;
-    top: 20px;
-    left: 20px;
-    right: 20px;
+    top: 20px; left: 20px; right: 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -39,8 +37,7 @@ html, body {
 }
 
 #ham-btn {
-    width: 48px;
-    height: 48px;
+    width: 48px; height: 48px;
     flex-shrink: 0;
     background: rgba(30, 30, 45, 0.75);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -55,8 +52,7 @@ html, body {
 }
 
 .hline {
-    width: 20px;
-    height: 2px;
+    width: 20px; height: 2px;
     background: #fff;
     border-radius: 1px;
 }
@@ -80,17 +76,15 @@ html, body {
     color: #ff8888;
 }
 
-/* 사이드바 */
+/* ── 사이드바 ── */
 #sidebar {
     position: fixed;
-    top: 0;
-    left: -300px;
-    width: 300px;
-    height: 100%;
+    top: 0; left: -300px;
+    width: 300px; height: 100%;
     background: rgba(20, 20, 30, 0.95);
     backdrop-filter: blur(15px);
     z-index: 2000;
-    transition: 0.3s;
+    transition: left 0.3s ease;
     padding: 25px;
     color: white;
     box-shadow: 5px 0 15px rgba(0, 0, 0, 0.5);
@@ -106,7 +100,6 @@ html, body {
     display: none;
     z-index: 1999;
 }
-
 #sidebar-overlay.show { display: block; }
 
 .sidebar-header {
@@ -115,10 +108,10 @@ html, body {
     align-items: center;
     margin-bottom: 30px;
 }
-
 .sidebar-header h2 { font-size: 18px; color: #4db8ff; }
 .close-btn { cursor: pointer; font-size: 18px; }
 
+/* ── 기억 아이템 ── */
 .memory-item {
     background: rgba(255, 255, 255, 0.05);
     padding: 15px;
@@ -128,7 +121,6 @@ html, body {
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: 0.2s;
 }
-
 .memory-item:hover {
     border-color: #4db8ff;
     background: rgba(255, 255, 255, 0.1);
@@ -138,7 +130,6 @@ html, body {
 .item-date { display: block; font-size: 12px; color: rgba(255, 255, 255, 0.6); }
 
 .memory-actions { display: flex; gap: 8px; margin-top: 10px; }
-
 .memory-action-btn {
     flex: 1;
     padding: 8px;
@@ -148,29 +139,93 @@ html, body {
     font-size: 12px;
     font-weight: 600;
 }
-
-.memory-action-btn.move { background: #4db8ff; color: #fff; }
+.memory-action-btn.move   { background: #4db8ff; color: #fff; }
 .memory-action-btn.delete { background: #ff5555; color: #fff; }
 
-.empty-message { opacity: 0.5; text-align: center; margin-top: 50px; }
+.empty-message {
+    opacity: 0.5;
+    text-align: center;
+    margin-top: 50px;
+}
 
-/* 컨트롤 버튼 */
+.sidebar-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin-bottom: 20px;
+}
+
+/* ── ✅ fog-toggle-row 중복 제거 후 통합 ── */
+.fog-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 0 16px;   /* 첫 번째 선언의 padding 유지 */
+    cursor: pointer;       /* cursor 유지 */
+}
+
+.fog-toggle-label {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 500;
+}
+
+.fog-toggle-state {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    transition: 0.25s ease;
+    white-space: nowrap;
+}
+.fog-toggle-state.on {
+    background: rgba(20, 20, 40, 0.9);
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.fog-toggle-state.off {
+    background: rgba(240, 240, 245, 0.9);
+    color: rgba(30, 30, 45, 0.85);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.toggle-switch {
+    width: 44px; height: 26px;
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.15);
+    position: relative;
+    transition: background 0.25s ease;
+    flex-shrink: 0;
+}
+.toggle-switch.on  { background: #3a3a5c; }
+.toggle-switch.off { background: rgba(220, 220, 230, 0.85); }
+
+.toggle-knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.25s ease;
+}
+.toggle-switch.on  .toggle-knob { transform: translateX(18px); background: #fff; }
+.toggle-switch.off .toggle-knob { transform: translateX(0);    background: rgba(80, 80, 100, 0.7); }
+
+/* ── 컨트롤 버튼 ── */
 #controls {
     position: absolute;
-    bottom: 36px;
-    right: 20px;
+    bottom: 36px; right: 20px;
     z-index: 1000;
     display: flex;
     flex-direction: column;
     gap: 12px;
     transition: bottom 0.3s ease;
 }
-
-#controls.hud-open { bottom: 132px; }
+/* ✅ HUD 높이(120px) + 여백(16px) = 136px */
+#controls.hud-open { bottom: 136px; }
 
 .btn {
-    width: 56px;
-    height: 56px;
+    width: 56px; height: 56px;
     border-radius: 50%;
     background: rgba(30, 30, 45, 0.82);
     display: flex;
@@ -184,7 +239,7 @@ html, body {
     transition: 0.2s;
 }
 
-#rec-btn.recording .icon-rec { display: none; }
+#rec-btn.recording .icon-rec  { display: none; }
 #rec-btn.recording .icon-stop { display: block; }
 #rec-btn .icon-stop { display: none; }
 
@@ -192,107 +247,17 @@ html, body {
 .icon-rec  { width: 14px; height: 14px; background: #ff4444; border-radius: 50%; }
 
 .icon-loc {
-    width: 12px;
-    height: 12px;
+    width: 12px; height: 12px;
     background: #4db8ff;
     border-radius: 50%;
     box-shadow: 0 0 10px #4db8ff;
 }
 
-.fog-toggle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0 16px;
-    cursor: pointer;
-}
-
-.fog-toggle-label {
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.85);
-    font-weight: 500;
-}
-
-.fog-toggle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-}
-
-.fog-toggle-state {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 3px 10px;
-    border-radius: 20px;
-    transition: 0.25s ease;
-    white-space: nowrap;
-}
-
-.fog-toggle-state.on {
-    background: rgba(20, 20, 40, 0.9);
-    color: rgba(255, 255, 255, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.fog-toggle-state.off {
-    background: rgba(240, 240, 245, 0.9);
-    color: rgba(30, 30, 45, 0.85);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.toggle-switch {
-    width: 44px;
-    height: 26px;
-    border-radius: 13px;
-    background: rgba(255, 255, 255, 0.15);
-    position: relative;
-    transition: background 0.25s ease;
-    flex-shrink: 0;
-}
-
-.toggle-switch.on {
-    background: #3a3a5c;
-}
-
-.toggle-switch.off {
-    background: rgba(220, 220, 230, 0.85);
-}
-
-.toggle-knob {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #fff;
-    transition: transform 0.25s ease;
-}
-
-.toggle-switch.on .toggle-knob {
-    transform: translateX(18px);
-    background: #fff;
-}
-
-.toggle-switch.off .toggle-knob {
-    transform: translateX(0px);
-    background: rgba(80, 80, 100, 0.7);
-}
-
-.sidebar-divider {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.08);
-    margin-bottom: 20px;
-}
-
-/* 왼쪽 하단 문의 버튼 */
+/* ── 왼쪽 하단 문의 버튼 ── */
 #help-btn {
     position: absolute;
-    bottom: 36px;
-    left: 20px;
-    width: 48px;
-    height: 48px;
+    bottom: 36px; left: 20px;
+    width: 48px; height: 48px;
     border-radius: 50%;
     background: rgba(30, 30, 45, 0.82);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -307,11 +272,11 @@ html, body {
     backdrop-filter: blur(8px);
     transition: bottom 0.3s ease;
 }
-
-#help-btn.hud-open { bottom: 132px; }
+/* ✅ controls와 동일하게 맞춤 */
+#help-btn.hud-open { bottom: 136px; }
 #help-btn:hover { border-color: #4db8ff; color: #4db8ff; }
 
-/* 문의 팝업 */
+/* ── 문의 팝업 ── */
 #help-popup {
     display: none;
     position: fixed;
@@ -322,7 +287,6 @@ html, body {
     justify-content: center;
     padding-bottom: 110px;
 }
-
 #help-popup.show { display: flex; }
 
 .help-content {
@@ -331,7 +295,7 @@ html, body {
     border-radius: 16px;
     padding: 22px 20px;
     width: calc(100% - 40px);
-    max-width: 360px;
+    max-width: 400px;   /* ✅ 갤럭시 탭 대응 넓힘 */
     color: #fff;
 }
 
@@ -344,7 +308,6 @@ html, body {
     font-weight: bold;
     color: #4db8ff;
 }
-
 .help-close { cursor: pointer; font-size: 18px; color: rgba(255, 255, 255, 0.6); }
 
 .help-content p {
@@ -367,24 +330,21 @@ html, body {
     text-align: center;
     transition: 0.2s;
 }
-
 .help-link:hover { background: rgba(255, 235, 0, 0.2); }
 
-/* HUD */
+/* ── HUD ── */
 #hud {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: 0; left: 0; right: 0;
     background: rgba(20, 20, 30, 0.85);
     z-index: 999;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
     transition: height 0.3s ease;
     overflow: hidden;
-    height: 24px;
+    /* ✅ 핸들(8+4+4px bar) = 약 28px로 여유있게 */
+    height: 28px;
 }
-
 #hud.expanded { height: 120px; }
 
 /* 핸들 */
@@ -397,60 +357,28 @@ html, body {
 }
 
 .handle-bar {
-    width: 40px;
-    height: 4px;
+    width: 40px; height: 4px;
     background: rgba(255, 255, 255, 0.25);
     border-radius: 2px;
     transition: background 0.2s;
 }
+#hud-handle:hover .handle-bar { background: rgba(255, 255, 255, 0.5); }
 
-#hud-handle:hover .handle-bar {
-    background: rgba(255, 255, 255, 0.5);
-}
-
-/* 기본 HUD 행 — 평소 숨김, 펼치면 보임 */
+/* HUD 내용 */
 #hud-basic {
     display: flex;
     align-items: center;
     padding: 0 30px;
-    height: 66px;
+    height: 80px;
     opacity: 0;
     transform: translateY(6px);
     transition: opacity 0.25s ease, transform 0.25s ease;
     pointer-events: none;
 }
-
 #hud.expanded #hud-basic {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
-}
-
-/* 구분선 */
-.divider-line {
-    height: 1px;
-    background: rgba(255, 255, 255, 0.08);
-    margin: 0 20px;
-}
-
-/* 확장 HUD 행 */
-#hud-expanded {
-    opacity: 0;
-    transform: translateY(6px);
-    transition: opacity 0.25s ease, transform 0.25s ease;
-    pointer-events: none;
-}
-
-#hud.expanded #hud-expanded {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-}
-
-#hud-extra {
-    display: flex;
-    align-items: center;
-    padding: 0 30px;
 }
 
 .stat { flex: 1; }
@@ -460,13 +388,21 @@ html, body {
     font-weight: bold;
     letter-spacing: 0.05em;
 }
-.value { font-size: 20px; color: #fff; font-weight: 600; margin-top: 4px; }
-.value span { margin-left: 2px; font-size: 14px; color: rgba(255,255,255,0.7); }
+.value {
+    font-size: 20px;
+    color: #fff;
+    font-weight: 600;
+    margin-top: 4px;
+}
+.value span {
+    margin-left: 2px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+}
 
-/* Leaflet 마커 */
+/* ── Leaflet 마커 ── */
 .player-marker {
-    width: 18px;
-    height: 18px;
+    width: 18px; height: 18px;
     background: #4db8ff;
     border: 3px solid rgba(255, 255, 255, 0.95);
     border-radius: 50%;
@@ -474,8 +410,7 @@ html, body {
 }
 
 .memory-marker {
-    width: 28px;
-    height: 28px;
+    width: 28px; height: 28px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -496,12 +431,10 @@ html, body {
     font-weight: 600;
     width: 100%;
 }
-
 .popup-delete-btn:hover { background: #ff3333; }
 
-.leaflet-popup {
-    z-index: 2000 !important;
-}
+/* ── Leaflet 팝업 커스텀 ── */
+.leaflet-popup { z-index: 2000 !important; }
 
 .leaflet-popup-content-wrapper {
     background: rgba(20, 20, 30, 0.95) !important;
@@ -518,48 +451,30 @@ html, body {
     color: #fff !important;
 }
 
-.leaflet-popup-content b {
-    font-size: 14px;
-    color: #fff;
-}
+.leaflet-popup-content b  { font-size: 14px; color: #fff; }
+.leaflet-popup-content small { color: rgba(255, 255, 255, 0.5); font-size: 11px; }
+.leaflet-popup-tip { background: rgba(20, 20, 30, 0.95) !important; }
+.leaflet-popup-close-button { color: rgba(255, 255, 255, 0.5) !important; font-size: 18px !important; }
+.leaflet-marker-pane { z-index: 1500 !important; }
 
-.leaflet-popup-content small {
-    color: rgba(255, 255, 255, 0.5);
-    font-size: 11px;
-}
-
-.leaflet-popup-tip {
-    background: rgba(20, 20, 30, 0.95) !important;
-}
-
-.leaflet-popup-close-button {
-    color: rgba(255, 255, 255, 0.5) !important;
-    font-size: 18px !important;
-}
-
-.leaflet-marker-pane {
-    z-index: 1500 !important;
-}
-
+/* ── 사진 마커 & 팝업 ── */
 .photo-marker {
-    width: 44px;
-    height: 44px;
+    width: 44px; height: 44px;
     border-radius: 8px;
     border: 2px solid #fff;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     cursor: pointer;
 }
-
 .photo-marker img {
-    width: 100%;
-    height: 100%;
+    width: 100%; height: 100%;
     object-fit: cover;
 }
 
 .photo-popup img {
     width: 100%;
-    max-width: 240px;
+    /* ✅ 갤럭시 탭 대응: max-width 넓힘 */
+    max-width: 300px;
     border-radius: 8px;
     margin-bottom: 8px;
     display: block;
