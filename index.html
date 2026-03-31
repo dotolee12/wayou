@@ -4,105 +4,131 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>나의 대동여지도 - Project Giloa</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0d18">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
+<!-- 사이드바 -->
 <div id="sidebar">
-    <div class="sidebar-header">
-        <h2>나의 기록들</h2>
-        <span onclick="toggleSidebar(false)" class="close-btn">✕</span>
-    </div>
-    <div id="fog-toggle-wrap">
-        <div class="fog-toggle-row" onclick="toggleFog()">
-            <span class="fog-toggle-label">어둠 효과</span>
-            <div style="display:flex;align-items:center;gap:8px;">
-                <span id="fog-toggle-state" class="fog-toggle-state on">켜짐</span>
-                <div id="fog-toggle-btn" class="toggle-switch on">
-                    <div class="toggle-knob"></div>
-                </div>
-            </div>
+  <div class="sidebar-header">
+    <h2>나의 기록들</h2>
+    <span onclick="toggleSidebar(false)" class="close-btn">✕</span>
+  </div>
+  <div id="fog-toggle-wrap">
+    <div class="fog-toggle-row" onclick="toggleFog()">
+      <span class="fog-toggle-label">어둠 효과</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="fog-toggle-state" class="fog-toggle-state on">켜짐</span>
+        <div id="fog-toggle-btn" class="toggle-switch on">
+          <div class="toggle-knob"></div>
         </div>
-        <div class="sidebar-divider"></div>
+      </div>
     </div>
-    <div id="memory-list-container">
-        <p class="empty-message">아직 기록이 없습니다.</p>
-    </div>
+    <div class="sidebar-divider"></div>
+  </div>
+  <div id="memory-list-container">
+    <p class="empty-message">아직 기록이 없습니다.</p>
+  </div>
 </div>
 <div id="sidebar-overlay" onclick="toggleSidebar(false)"></div>
 
+<!-- 지도 -->
 <div id="map-wrap"><div id="map"></div></div>
+
+<!-- 안개 캔버스 3개 -->
 <canvas id="fog-canvas"></canvas>
 <canvas id="age-canvas"></canvas>
 <canvas id="stay-canvas"></canvas>
 
+<!-- 상단 바 -->
 <div id="top-bar">
-    <div id="ham-btn" onclick="toggleSidebar()">
-        <div class="hline"></div>
-        <div class="hline"></div>
-        <div class="hline"></div>
-    </div>
-    <div id="rec-status-box">대기 중</div>
+  <div id="ham-btn" onclick="toggleSidebar()">
+    <div class="hline"></div>
+    <div class="hline"></div>
+    <div class="hline"></div>
+  </div>
+  <div id="rec-status-box">대기 중</div>
 </div>
 
+<!-- 우측 컨트롤 버튼 -->
 <div id="controls">
-    <div id="rec-btn" class="btn" onclick="toggleRecording()">
-        <div class="icon-rec"></div>
-        <div class="icon-stop"></div>
-    </div>
-    <div id="photo-btn" class="btn" onclick="document.getElementById('camera-input').click()" title="사진 올리기">🖼</div>
-    <div id="memo-btn" class="btn" onclick="addMemory()">★</div>
-    <div id="loc-btn" class="btn" onclick="centerMap()">
-        <div class="icon-loc"></div>
-    </div>
+  <div id="rec-btn" class="btn" onclick="toggleRecording()">
+    <div class="icon-rec"></div>
+    <div class="icon-stop"></div>
+  </div>
+  <div id="photo-btn" class="btn" 
+    onclick="document.getElementById('camera-input').click()" 
+    title="사진 올리기">🖼</div>
+  <div id="memo-btn" class="btn" onclick="addMemory()">★</div>
+  <div id="loc-btn" class="btn" onclick="centerMap()">
+    <div class="icon-loc"></div>
+  </div>
 </div>
 
-<input type="file" id="camera-input" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+<!-- ✅ camera-input 하나로 통합 (capture + onchange 둘 다 포함) -->
+<input type="file" id="camera-input" 
+  accept="image/*" 
+  capture="environment" 
+  style="display:none" 
+  onchange="handlePhoto(event)">
 
 <!-- 왼쪽 하단 문의 버튼 -->
 <div id="help-btn" onclick="toggleHelp()">?</div>
 
 <!-- 문의 팝업 -->
 <div id="help-popup">
-    <div class="help-content">
-        <div class="help-header">
-            <span>문의하기</span>
-            <span onclick="toggleHelp()" class="help-close">✕</span>
-        </div>
-        <p>사용 중 불편한 점이나 건의사항을<br>카카오톡 오픈채팅으로 알려주세요!</p>
-        <a href="https://open.kakao.com/o/gwg21Cni" target="_blank" class="help-link">
-            💬 카카오톡 오픈채팅 문의
-        </a>
+  <div class="help-content">
+    <div class="help-header">
+      <span>문의하기</span>
+      <span onclick="toggleHelp()" class="help-close">✕</span>
     </div>
+    <p>사용 중 불편한 점이나 건의사항을<br>카카오톡 오픈채팅으로 알려주세요!</p>
+    <a href="https://open.kakao.com/o/gwg21Cni" 
+      target="_blank" class="help-link">
+      💬 카카오톡 오픈채팅 문의
+    </a>
+  </div>
 </div>
 
-<!-- HUD: 핸들 탭하면 펼침/닫힘 -->
+<!-- HUD -->
 <div id="hud">
-    <div id="hud-handle" onclick="toggleHud()">
-        <div class="handle-bar"></div>
+  <div id="hud-handle" onclick="toggleHud()">
+    <div class="handle-bar"></div>
+  </div>
+  <div id="hud-basic">
+    <div class="stat">
+      <div class="label">TOTAL DISTANCE</div>
+      <div id="dist-val" class="value">0.00<span>km</span></div>
     </div>
-
-    <!-- 펼치면 보이는 전체 정보 -->
-    <div id="hud-basic">
-        <div class="stat">
-            <div class="label">TOTAL DISTANCE</div>
-            <div id="dist-val" class="value">0.00<span>km</span></div>
-        </div>
-        <div class="stat">
-            <div class="label">오늘 이동 거리</div>
-            <div id="today-dist-val" class="value">0.00<span>km</span></div>
-        </div>
-        <div class="stat">
-            <div class="label">기억 저장 수</div>
-            <div id="memory-count-val" class="value">0<span>개</span></div>
-        </div>
+    <div class="stat">
+      <div class="label">오늘 이동 거리</div>
+      <div id="today-dist-val" class="value">0.00<span>km</span></div>
     </div>
+    <div class="stat">
+      <div class="label">기억 저장 수</div>
+      <div id="memory-count-val" class="value">0<span>개</span></div>
+    </div>
+  </div>
 </div>
 
-<input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="handlePhoto(event)">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="./script.js"></script>
+
+<!-- PWA Service Worker 등록 -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(() => console.log('SW 등록 완료'))
+        .catch(e => console.warn('SW 등록 실패', e));
+    });
+  }
+</script>
+
 </body>
 </html>
-
